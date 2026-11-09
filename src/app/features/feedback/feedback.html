@@ -1,0 +1,236 @@
+<header
+  class="flex shrink-0 items-center justify-between gap-2.5 border-b border-line-2 bg-white px-4 py-3.5"
+>
+  <div class="flex min-w-0 items-center gap-2.5">
+    <div
+      class="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-accent text-base font-bold text-white"
+      aria-hidden="true"
+    >
+      {{ hotelLetter() }}
+    </div>
+    <div class="flex min-w-0 flex-col">
+      @if (hotel(); as h) {
+        <span class="truncate text-[15px] font-bold">{{ h.name }}</span>
+        <span class="truncate text-xs text-muted">{{ h.address }}</span>
+      } @else {
+        <div class="sk h-3.5 w-28"></div>
+      }
+    </div>
+  </div>
+  <app-lang-switch />
+</header>
+
+<main class="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 pt-5 pb-6">
+  @if (check.isLoading()) {
+    <div class="flex flex-col gap-4" aria-busy="true">
+      <div class="sk h-[30px] w-28 rounded-full"></div>
+      <div class="sk h-7 w-3/4"></div>
+      <div class="sk h-4 w-full"></div>
+      <div class="sk h-[120px] w-full rounded-2xl"></div>
+      <div class="sk h-[150px] w-full rounded-xl"></div>
+    </div>
+  } @else if (check.error()) {
+    <div
+      class="pop flex flex-1 flex-col items-center justify-center gap-3 text-center"
+      role="alert"
+    >
+      <div
+        class="flex size-[72px] items-center justify-center rounded-full bg-danger-soft text-danger"
+      >
+        <app-icon name="close" [size]="32" [stroke]="2.2" />
+      </div>
+      <h1 class="m-0 text-xl font-bold">{{ 'feedback.offlineTitle' | transloco }}</h1>
+      <p class="m-0 max-w-[300px] text-sm leading-normal text-muted">
+        {{ 'feedback.offlineText' | transloco }}
+      </p>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="mt-2 h-12"
+        (click)="check.reload()"
+      >
+        <app-icon name="refresh" />
+        <span pButtonLabel>{{ 'feedback.retry' | transloco }}</span>
+      </button>
+    </div>
+  } @else if (check.value() === false) {
+    <div
+      class="pop flex flex-1 flex-col items-center justify-center gap-3 text-center"
+      role="alert"
+    >
+      <div class="flex size-[72px] items-center justify-center rounded-full bg-chip text-muted">
+        <app-icon name="qr" [size]="32" [stroke]="1.8" />
+      </div>
+      <h1 class="m-0 text-xl font-bold">{{ 'feedback.invalidTitle' | transloco }}</h1>
+      <p class="m-0 max-w-[300px] text-sm leading-normal text-muted">
+        {{ 'feedback.invalidText' | transloco }}
+      </p>
+    </div>
+  } @else if (done()) {
+    <div
+      class="pop flex flex-1 flex-col items-center justify-center gap-3.5 text-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        class="ring-in flex size-[84px] items-center justify-center rounded-full bg-[#E7F6EC] text-success"
+      >
+        <svg
+          width="42"
+          height="42"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.4"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path class="draw" d="m5 12.5 4.5 4.5L19 7.5" />
+        </svg>
+      </div>
+      <h1 class="m-0 text-2xl font-bold">{{ 'feedback.thanks' | transloco }}</h1>
+      <p class="m-0 max-w-[300px] text-[15px] leading-normal text-muted">
+        {{ 'feedback.thanksText' | transloco }}
+      </p>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="mt-2.5 h-12"
+        (click)="again()"
+      >
+        <span pButtonLabel>{{ 'feedback.again' | transloco }}</span>
+      </button>
+    </div>
+  } @else {
+    <form class="fade flex flex-col gap-[18px]" (ngSubmit)="submit()" novalidate>
+      <div class="flex flex-col gap-2">
+        <span
+          class="flex h-[30px] items-center gap-1.5 self-start rounded-full bg-accent-soft px-3 text-[13px] font-semibold text-accent-dark"
+        >
+          <app-icon name="bed" [size]="14" [stroke]="2" />
+          {{ 'feedback.room' | transloco: { room: room() } }}
+        </span>
+        <h1 class="m-0 text-2xl leading-tight font-bold tracking-[-0.01em]">
+          {{ 'feedback.title' | transloco }}
+        </h1>
+        <p class="m-0 text-sm leading-normal text-muted">{{ 'feedback.sub' | transloco }}</p>
+      </div>
+
+      <section
+        class="flex flex-col gap-2.5 rounded-2xl border bg-white p-4"
+        [class.border-danger-line]="noRate()"
+        [class.border-line-2]="!noRate()"
+      >
+        <span id="fb-rate" class="text-sm font-semibold text-ink-2"
+          >{{ 'feedback.rate' | transloco }} <span class="req">*</span></span
+        >
+        <div role="radiogroup" aria-labelledby="fb-rate" class="flex justify-between gap-1.5">
+          @for (n of stars; track n) {
+            <button
+              type="button"
+              role="radio"
+              class="star-btn tap"
+              [class.star-on]="n <= rating()"
+              [attr.aria-checked]="n === rating()"
+              [attr.aria-label]="
+                'feedback.starAria'
+                  | transloco: { n: n, label: ('feedback.marks.' + n | transloco) }
+              "
+              (click)="rating.set(n)"
+            >
+              <svg
+                width="26"
+                height="26"
+                viewBox="0 0 24 24"
+                [attr.fill]="n <= rating() ? 'currentColor' : 'none'"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"
+                />
+              </svg>
+            </button>
+          }
+        </div>
+        <span
+          class="min-h-[18px] text-[13px] font-medium"
+          [class.text-[#8A4A14]]="rating() > 0"
+          [class.text-danger]="rating() === 0"
+          aria-live="polite"
+        >
+          @if (rating() > 0) {
+            {{ 'feedback.marks.' + rating() | transloco }}
+          } @else if (noRate()) {
+            {{ 'feedback.needRate' | transloco }}
+          }
+        </span>
+      </section>
+
+      <div class="field">
+        <label for="fb-text" class="field-label !font-semibold"
+          >{{ 'feedback.comment' | transloco }} <span class="req">*</span></label
+        >
+        <textarea
+          id="fb-text"
+          name="text"
+          pTextarea
+          rows="6"
+          class="w-full resize-none !text-[15px] !leading-normal"
+          [maxlength]="maxText"
+          [placeholder]="'feedback.placeholder' | transloco"
+          [ngModel]="text()"
+          (ngModelChange)="setText($event)"
+          [invalid]="noText()"
+          [attr.aria-invalid]="noText()"
+          [attr.aria-describedby]="noText() ? 'fb-text-err' : null"
+        ></textarea>
+        <div class="flex justify-between gap-2 text-xs">
+          <span id="fb-text-err" class="text-danger">
+            @if (noText()) {
+              {{ 'feedback.needText' | transloco }}
+            }
+          </span>
+          <span class="text-muted tabular-nums">{{ text().length }} / {{ maxText }}</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="fb-name" class="field-label !font-semibold"
+          >{{ 'feedback.name' | transloco }}
+          <span class="font-normal text-muted">· {{ 'feedback.optional' | transloco }}</span></label
+        >
+        <input
+          id="fb-name"
+          name="guest"
+          pInputText
+          autocomplete="name"
+          maxlength="60"
+          class="h-12 !text-[15px]"
+          [placeholder]="'feedback.namePlaceholder' | transloco"
+          [ngModel]="name()"
+          (ngModelChange)="name.set($event)"
+        />
+      </div>
+
+      <button pButton type="submit" class="h-[52px] !text-base" [loading]="sending()">
+        <span pButtonLabel>{{ 'feedback.send' | transloco }}</span>
+      </button>
+      <p class="m-0 flex items-start gap-2 text-xs leading-normal text-muted">
+        <app-icon name="lock" [size]="16" class="mt-px" />
+        {{ 'feedback.privacy' | transloco }}
+      </p>
+    </form>
+  }
+</main>
+
+<footer class="shrink-0 border-t border-line-2 bg-white px-4 py-3 text-center text-xs text-muted">
+  {{ 'feedback.poweredBy' | transloco }}
+</footer>

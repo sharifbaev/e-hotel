@@ -1,0 +1,495 @@
+@if (!bp.isMobile()) {
+  <div
+    class="flex flex-col gap-3 px-6 pb-5"
+    [class.page-fit]="!embedded()"
+    [class.pt-5]="!embedded()"
+    [class.min-h-0]="embedded()"
+    [class.flex-1]="embedded()"
+  >
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      @if (embedded()) {
+        <!-- Внутри «Платежи и расходы»: заголовок и вкладки страницы (без подсказки) -->
+        <div class="flex flex-wrap items-center gap-4">
+          <ng-content />
+        </div>
+      } @else {
+        <div>
+          <h1 class="m-0 text-2xl font-bold tracking-[-0.01em]">
+            {{ p() + '.title' | transloco }}
+          </h1>
+          <p class="mt-0.5 mb-0 text-[13px] text-muted">{{ p() + '.subtitle' | transloco }}</p>
+        </div>
+      }
+      <div class="flex flex-wrap gap-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="w-[42px] !px-0"
+          [attr.aria-label]="'common.refresh' | transloco"
+          [disabled]="loading()"
+          (click)="reload()"
+        >
+          <app-icon name="refresh" [class.spin]="loading()" />
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="askDelete()"
+        >
+          <app-icon name="trash" />
+          <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="openEdit()"
+        >
+          <app-icon name="edit" />
+          <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+        </button>
+        <button pButton type="button" (click)="openAdd()">
+          <app-icon name="plus" />
+          <span pButtonLabel>{{ 'common.add' | transloco }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid shrink-0 grid-cols-3 gap-3 max-lg:grid-cols-1">
+      <div
+        class="card-h flex items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-3"
+      >
+        <span class="shrink-0 text-[13px] font-medium text-muted">{{
+          p() + '.stats.total' | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-5 w-[60%]"></div>
+        } @else {
+          <span
+            class="rise text-lg leading-tight font-bold tracking-[-0.02em]"
+            [class]="cfg().sumClass"
+            >{{ stats().total | sum }} {{ 'common.currency' | transloco }}</span
+          >
+        }
+      </div>
+      <div
+        class="card-h flex items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-3"
+      >
+        <span class="shrink-0 text-[13px] font-medium text-muted">{{
+          p() + '.stats.count' | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-5 w-[30%]"></div>
+        } @else {
+          <span class="rise text-lg leading-tight font-bold tracking-[-0.02em]">{{
+            stats().count
+          }}</span>
+        }
+      </div>
+      <div
+        class="card-h flex min-w-0 items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-3"
+      >
+        <span class="shrink-0 text-[13px] font-medium text-muted">{{
+          p() + '.stats.biggest' | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-5 w-[70%]"></div>
+        } @else {
+          <span class="rise truncate text-lg leading-tight font-bold tracking-[-0.02em]">{{
+            stats().biggest
+          }}</span>
+        }
+      </div>
+    </div>
+
+    <!-- На невысоких экранах таблица сжимается и прокручивается сама; шапка и пагинация видны -->
+    <section class="flex min-h-0 shrink flex-col overflow-hidden rounded-xl border border-line bg-white">
+      <app-data-grid
+        [rows]="items()"
+        [columns]="columns()"
+        [loading]="loading()"
+        [selectable]="true"
+        [getRowId]="rowId"
+        [emptyText]="p() + '.empty'"
+        [noMatchText]="p() + '.noMatches'"
+        [minWidth]="820"
+        (selection)="select($event)"
+        (filtered)="filteredRows.set($event)"
+      />
+    </section>
+  </div>
+} @else {
+  <!-- ===== Мобильная версия ===== -->
+  <header
+    class="flex shrink-0 flex-col gap-2.5 border-b border-line-2 bg-white px-4 pb-3"
+    [class.pt-3.5]="!embedded()"
+  >
+    @if (!embedded()) {
+      <h1 class="m-0 text-xl font-bold">{{ p() + '.title' | transloco }}</h1>
+    }
+    <div class="grid grid-cols-[minmax(0,1fr)_140px] gap-2">
+      <p-datepicker
+        inputId="me-filter-date"
+        [ngModel]="mDate()"
+        (ngModelChange)="mDate.set($event)"
+        dateFormat="dd.mm.yy"
+        [showClear]="true"
+        [showIcon]="true"
+        iconDisplay="input"
+        [touchUI]="true"
+        [fluid]="true"
+        [placeholder]="p() + '.mobile.anyDate' | transloco"
+        [ariaLabel]="p() + '.col.date' | transloco"
+      />
+      <p-select
+        [options]="staff()"
+        [ngModel]="mWho()"
+        (ngModelChange)="mWho.set($event)"
+        [showClear]="true"
+        [placeholder]="'common.all' | transloco"
+        [ariaLabel]="p() + '.col.who' | transloco"
+        [fluid]="true"
+        appendTo="body"
+      />
+    </div>
+  </header>
+
+  <div class="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-3.5 pb-24">
+    <div class="flex items-end justify-between gap-3 rounded-2xl bg-ink p-4 text-white">
+      <div class="flex flex-col gap-1">
+        <span class="text-xs text-field">{{
+          (mDate() ? p() + '.mobile.totalDay' : p() + '.mobile.total') | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-[26px] w-40 opacity-30"></div>
+        } @else {
+          <span class="rise text-[26px] font-bold tracking-[-0.02em]"
+            >{{ mobileTotal() | sum }} {{ 'common.currency' | transloco }}</span
+          >
+        }
+      </div>
+      <span class="text-xs text-field">{{ mobileList().length | plural: 'record' }}</span>
+    </div>
+
+    @if (loading()) {
+      @for (s of [0, 1, 2, 3, 4, 5]; track s) {
+        <div class="flex items-center gap-3 rounded-[14px] border border-line-2 bg-white p-3.5">
+          <div class="flex flex-1 flex-col gap-1.5">
+            <div class="sk h-3 w-[70%]"></div>
+            <div class="sk h-2.5 w-[45%]"></div>
+          </div>
+          <div class="sk h-3 w-[70px]"></div>
+        </div>
+      }
+    } @else if (mobileList().length === 0) {
+      <div class="rise flex flex-col items-center gap-2 px-4 py-10 text-center">
+        <span class="text-[15px] font-semibold">{{ 'common.noData' | transloco }}</span>
+        <span class="text-[13px] text-muted">{{ p() + '.mobile.emptyText' | transloco }}</span>
+      </div>
+    } @else {
+      @for (g of mobileGroups(); track g.date) {
+        <div class="flex flex-col gap-2">
+          <div class="flex justify-between px-0.5 pt-1.5 text-xs font-semibold text-muted">
+            <span>{{ g.date | dayMonth: { year: true } }}</span>
+            <span>{{ cfg().sign }}{{ g.total | sum }}</span>
+          </div>
+          @for (e of g.items; track e.id) {
+            <button
+              type="button"
+              class="tap rise flex w-full cursor-pointer items-center gap-3 rounded-[14px] border border-line-2 bg-white px-3.5 py-3 text-left"
+              (click)="openActions(e)"
+            >
+              <span
+                class="flex size-9 shrink-0 items-center justify-center rounded-[10px]"
+                [class]="cfg().iconClass"
+                aria-hidden="true"
+              >
+                <app-icon [name]="cfg().icon" />
+              </span>
+              <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span class="truncate text-sm font-semibold text-ink">{{ titleOf(e) }}</span>
+                @if (kind() === 'debt') {
+                  <span class="truncate text-xs text-ink-2">{{ e.reason }}</span>
+                }
+                <span class="text-xs text-muted">{{ e.who }}</span>
+              </span>
+              <span
+                class="text-sm font-bold whitespace-nowrap tabular-nums"
+                [class]="cfg().sumClass"
+                >{{ cfg().sign }}{{ e.sum | sum }}</span
+              >
+            </button>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <button type="button" class="fab tap" (click)="openAdd()">
+    <app-icon name="plus" [stroke]="2.2" />
+    {{ p() + '.mobile.fab' | transloco }}
+  </button>
+
+  <!-- Действия с расходом -->
+  <app-sheet
+    [(visible)]="actionOpen"
+    [title]="selected() ? titleOf(selected()!) : ''"
+    [subtitle]="
+      selected()
+        ? (selected()!.sum | sum) +
+          ' ' +
+          ('common.currency' | transloco) +
+          ' · ' +
+          (selected()!.date | dmy) +
+          ' · ' +
+          selected()!.who
+        : ''
+    "
+  >
+    <div class="flex flex-col gap-2.5 pb-1">
+      @if (confirmInline()) {
+        <div class="rise rounded-xl bg-[#FEF3F2] p-3 text-sm text-danger">
+          {{ p() + '.mobile.confirmDelete' | transloco }}
+        </div>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          class="h-12"
+          [loading]="saving()"
+          (click)="doDelete()"
+        >
+          <span pButtonLabel>{{ p() + '.mobile.yesDelete' | transloco }}</span>
+        </button>
+      } @else {
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="h-12"
+          (click)="openEdit()"
+        >
+          <app-icon name="edit" />
+          <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          class="h-12"
+          (click)="confirmInline.set(true)"
+        >
+          <app-icon name="trash" />
+          <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+        </button>
+      }
+      <button
+        pButton
+        type="button"
+        [text]="true"
+        severity="secondary"
+        class="h-12"
+        (click)="actionOpen.set(false)"
+      >
+        <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+      </button>
+    </div>
+  </app-sheet>
+}
+
+<!-- Форма расхода: диалог на десктопе, шторка на телефоне -->
+<ng-template #expenseForm>
+  <form
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    id="expense-form"
+    class="flex flex-col gap-4"
+    novalidate
+  >
+    @if (kind() === 'debt') {
+      <div class="field">
+        <label for="e-debtor" class="field-label"
+          >{{ p() + '.form.debtor' | transloco }} <span class="req">*</span></label
+        >
+        <input
+          id="e-debtor"
+          pInputText
+          formControlName="debtor"
+          [placeholder]="p() + '.form.debtorPlaceholder' | transloco"
+          [invalid]="invalid('debtor')"
+          [attr.aria-invalid]="invalid('debtor')"
+        />
+      </div>
+    }
+    @if (kind() === 'service') {
+      <div class="field">
+        <label for="e-service" class="field-label"
+          >{{ p() + '.form.serviceType' | transloco }} <span class="req">*</span></label
+        >
+        <p-select
+          inputId="e-service"
+          formControlName="serviceType"
+          [options]="serviceTypes"
+          [placeholder]="p() + '.form.serviceTypePlaceholder' | transloco"
+          [fluid]="true"
+          appendTo="body"
+          [invalid]="invalid('serviceType')"
+        >
+          <ng-template #selectedItem let-t>{{ 'serviceTypes.' + t | transloco }}</ng-template>
+          <ng-template #item let-t>{{ 'serviceTypes.' + t | transloco }}</ng-template>
+        </p-select>
+      </div>
+    }
+    @if (showReason()) {
+      <div class="field">
+        <label for="e-reason" class="field-label"
+          >{{ p() + '.form.reason' | transloco }} <span class="req">*</span></label
+        >
+        @if (kind() === 'expense') {
+          <input
+            id="e-reason"
+            pInputText
+            formControlName="reason"
+            [placeholder]="p() + '.form.reasonPlaceholder' | transloco"
+            [invalid]="invalid('reason')"
+            [attr.aria-invalid]="invalid('reason')"
+          />
+        } @else {
+          <textarea
+            id="e-reason"
+            pTextarea
+            rows="3"
+            class="w-full resize-none"
+            formControlName="reason"
+            [placeholder]="p() + '.form.reasonPlaceholder' | transloco"
+            [invalid]="invalid('reason')"
+            [attr.aria-invalid]="invalid('reason')"
+          ></textarea>
+        }
+      </div>
+    }
+    <div class="grid grid-cols-2 gap-4">
+      <div class="field">
+        <label for="e-sum" class="field-label"
+          >{{ p() + '.form.sum' | transloco }} <span class="req">*</span></label
+        >
+        <div class="relative">
+          <input
+            id="e-sum"
+            pInputText
+            appSum
+            formControlName="sum"
+            placeholder="0"
+            class="w-full pr-12"
+            [invalid]="invalid('sum')"
+            [attr.aria-invalid]="invalid('sum')"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+            >{{ 'common.currency' | transloco }}</span
+          >
+        </div>
+      </div>
+      <div class="field">
+        <label for="e-date" class="field-label"
+          >{{ p() + '.form.date' | transloco }} <span class="req">*</span></label
+        >
+        <p-datepicker
+          inputId="e-date"
+          formControlName="date"
+          dateFormat="dd.mm.yy"
+          [showTime]="true"
+          [showSeconds]="true"
+          hourFormat="24"
+          [fluid]="true"
+          appendTo="body"
+          [invalid]="invalid('date')"
+        />
+      </div>
+    </div>
+    <div class="field">
+      <label for="e-who" class="field-label">{{ p() + '.form.who' | transloco }}</label>
+      <p-select
+        inputId="e-who"
+        formControlName="who"
+        [options]="staff()"
+        [fluid]="true"
+        appendTo="body"
+      />
+    </div>
+  </form>
+</ng-template>
+
+@if (!bp.isMobile()) {
+  <p-dialog
+    [(visible)]="formOpen"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [header]="(editId() === null ? p() + '.form.addTitle' : p() + '.form.editTitle') | transloco"
+    [style]="{ width: '520px', maxWidth: 'calc(100vw - 32px)' }"
+    styleClass="hs-dialog"
+    [closeAriaLabel]="'common.close' | transloco"
+  >
+    <ng-container *ngTemplateOutlet="expenseForm" />
+    <ng-template #footer>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        (click)="formOpen.set(false)"
+      >
+        <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+      </button>
+      <button pButton type="submit" form="expense-form" [loading]="saving()">
+        @if (!saving()) {
+          <app-icon name="check" />
+        }
+        <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+      </button>
+    </ng-template>
+  </p-dialog>
+} @else {
+  <app-sheet
+    [(visible)]="formOpen"
+    [title]="(editId() === null ? p() + '.form.addTitle' : p() + '.form.editTitle') | transloco"
+  >
+    <div class="pb-1">
+      <ng-container *ngTemplateOutlet="expenseForm" />
+    </div>
+    <div sheetFooter class="grid grid-cols-2 gap-2.5">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="h-12"
+        (click)="formOpen.set(false)"
+      >
+        <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+      </button>
+      <button pButton type="submit" form="expense-form" class="h-12" [loading]="saving()">
+        <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+      </button>
+    </div>
+  </app-sheet>
+}
+
+<app-confirm-dialog
+  [(visible)]="confirmOpen"
+  [title]="p() + '.confirm.title'"
+  [text]="p() + '.confirm.text'"
+  [params]="{ reason: selected() ? titleOf(selected()!) : '', sum: (selected()?.sum | sum) }"
+  [busy]="saving()"
+  (confirm)="doDelete()"
+/>

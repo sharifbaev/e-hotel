@@ -1,0 +1,416 @@
+<div
+  class="flex flex-col gap-4 px-6 pt-5 pb-6 max-md:px-4 max-md:pt-4"
+  [class.pb-28]="dirty()"
+>
+  <p-tabs
+    [scrollable]="true"
+    [showNavigators]="false"
+    [value]="tab()"
+    (valueChange)="setTab($event)"
+    class="hs-tabs"
+  >
+    <!-- Заголовок и вкладки в одном ряду (без подсказки) -->
+    <div class="flex flex-wrap items-end gap-x-6 gap-y-2">
+      <h1 class="m-0 pb-2 text-2xl font-bold tracking-[-0.01em] max-md:text-xl">
+        {{ 'settings.title' | transloco }}
+      </h1>
+      <p-tablist class="min-w-0 flex-1">
+        <p-tab value="hotel">{{ 'settings.tabs.hotel' | transloco }}</p-tab>
+        <p-tab value="rates">{{ 'settings.tabs.rates' | transloco }}</p-tab>
+        <p-tab value="log">{{ 'settings.tabs.log' | transloco }}</p-tab>
+      </p-tablist>
+    </div>
+    <p-tabpanels>
+      <!-- ===== Отель ===== -->
+      <p-tabpanel value="hotel">
+        <section
+          class="rise flex flex-col gap-4 rounded-[14px] border border-line bg-white p-6 max-md:p-4"
+        >
+          <h2 class="m-0 text-[17px] font-semibold">{{ 'settings.hotel.title' | transloco }}</h2>
+          @if (hotelLoading()) {
+            <div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+              @for (s of [0, 1, 2, 3]; track s) {
+                <div class="flex flex-col gap-2">
+                  <div class="sk h-3 w-28"></div>
+                  <div class="sk h-11"></div>
+                </div>
+              }
+            </div>
+          } @else {
+            <form
+              [formGroup]="hotelForm"
+              class="flex flex-col gap-4"
+              (ngSubmit)="saveHotel()"
+              novalidate
+            >
+              <div class="grid grid-cols-2 gap-4 max-md:grid-cols-1">
+                <div class="field">
+                  <label for="h-name" class="field-label">{{
+                    'settings.hotel.name' | transloco
+                  }}</label>
+                  <input id="h-name" pInputText formControlName="name" />
+                </div>
+                <div class="field">
+                  <label for="h-legal" class="field-label">{{
+                    'settings.hotel.legalName' | transloco
+                  }}</label>
+                  <input id="h-legal" pInputText formControlName="legalName" />
+                </div>
+                <div class="field">
+                  <label for="h-inn" class="field-label">{{
+                    'settings.hotel.inn' | transloco
+                  }}</label>
+                  <input
+                    id="h-inn"
+                    pInputText
+                    formControlName="inn"
+                    inputmode="numeric"
+                    maxlength="9"
+                    [placeholder]="'settings.hotel.innPlaceholder' | transloco"
+                    [invalid]="hotelForm.controls.inn.invalid"
+                    [attr.aria-invalid]="hotelForm.controls.inn.invalid"
+                  />
+                </div>
+                <div class="field">
+                  <label for="h-phone" class="field-label">{{
+                    'settings.hotel.phone' | transloco
+                  }}</label>
+                  <input id="h-phone" pInputText type="tel" formControlName="phone" />
+                </div>
+                <div class="field">
+                  <label for="h-city" class="field-label">{{
+                    'settings.hotel.city' | transloco
+                  }}</label>
+                  <input id="h-city" pInputText formControlName="city" />
+                </div>
+                <div class="field">
+                  <label for="h-addr" class="field-label">{{
+                    'settings.hotel.address' | transloco
+                  }}</label>
+                  <input id="h-addr" pInputText formControlName="address" />
+                </div>
+              </div>
+
+              <div class="my-1 h-px bg-line-2"></div>
+              <h2 class="m-0 text-[17px] font-semibold">
+                {{ 'settings.hotel.rules' | transloco }}
+              </h2>
+              <div class="grid grid-cols-4 gap-4 max-lg:grid-cols-2 max-md:grid-cols-1">
+                <div class="field">
+                  <label for="h-in" class="field-label">{{
+                    'settings.hotel.checkinTime' | transloco
+                  }}</label>
+                  <p-datepicker
+                    inputId="h-in"
+                    formControlName="checkinTime"
+                    [timeOnly]="true"
+                    hourFormat="24"
+                    [fluid]="true"
+                    appendTo="body"
+                  />
+                </div>
+                <div class="field">
+                  <label for="h-out" class="field-label">{{
+                    'settings.hotel.checkoutTime' | transloco
+                  }}</label>
+                  <p-datepicker
+                    inputId="h-out"
+                    formControlName="checkoutTime"
+                    [timeOnly]="true"
+                    hourFormat="24"
+                    [fluid]="true"
+                    appendTo="body"
+                  />
+                </div>
+                <div class="field">
+                  <label for="h-lang" class="field-label">{{
+                    'settings.hotel.defaultLang' | transloco
+                  }}</label>
+                  <p-select
+                    inputId="h-lang"
+                    formControlName="defaultLang"
+                    [options]="langs"
+                    [fluid]="true"
+                    appendTo="body"
+                  >
+                    <ng-template #selectedItem let-l>{{ 'langs.' + l | transloco }}</ng-template>
+                    <ng-template #item let-l>{{ 'langs.' + l | transloco }}</ng-template>
+                  </p-select>
+                </div>
+                <div class="field">
+                  <label for="h-cur" class="field-label">{{
+                    'settings.hotel.currency' | transloco
+                  }}</label>
+                  <input
+                    id="h-cur"
+                    pInputText
+                    [value]="'settings.hotel.currencyValue' | transloco"
+                    disabled
+                  />
+                </div>
+              </div>
+            </form>
+          }
+        </section>
+      </p-tabpanel>
+
+      <!-- ===== Номера и тарифы ===== -->
+      <p-tabpanel value="rates">
+        <section
+          class="rise flex flex-col gap-4 rounded-[14px] border border-line bg-white p-6 max-md:p-4"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="m-0 text-[17px] font-semibold">
+                {{ 'settings.rates.title' | transloco }}
+              </h2>
+              <p class="mt-1 mb-0 text-[13px] text-muted">
+                {{ 'settings.rates.subtitle' | transloco }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button
+                pButton
+                type="button"
+                severity="danger"
+                [outlined]="true"
+                [disabled]="!selectedCat()"
+                (click)="askDeleteCat()"
+              >
+                <app-icon name="trash" />
+                <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+              </button>
+              <button
+                pButton
+                type="button"
+                severity="secondary"
+                [outlined]="true"
+                [disabled]="!selectedCat()"
+                (click)="openEditCat()"
+              >
+                <app-icon name="edit" />
+                <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+              </button>
+              <button pButton type="button" (click)="openAddCat()">
+                <app-icon name="plus" />
+                <span pButtonLabel>{{ 'settings.rates.add' | transloco }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="overflow-x-auto rounded-xl border border-line-2"
+            tabindex="0"
+            [attr.aria-label]="'settings.rates.title' | transloco"
+          >
+            <table class="w-full min-w-[560px] border-collapse text-sm">
+              <thead>
+                <tr
+                  class="border-b border-line-2 bg-subtle text-left text-xs font-semibold text-muted"
+                >
+                  <th scope="col" class="w-12 px-4 py-2.5">
+                    <span class="sr-only">{{ 'common.select' | transloco }}</span>
+                  </th>
+                  <th scope="col" class="px-3 py-2.5 font-semibold">
+                    {{ 'settings.rates.col.name' | transloco }}
+                  </th>
+                  <th scope="col" class="px-3 py-2.5 font-semibold">
+                    {{ 'settings.rates.col.rooms' | transloco }}
+                  </th>
+                  <th scope="col" class="px-3 py-2.5 font-semibold">
+                    {{ 'settings.rates.col.beds' | transloco }}
+                  </th>
+                  <th scope="col" class="px-4 py-2.5 text-right font-semibold">
+                    {{ 'settings.rates.col.price' | transloco }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                @if (catLoading()) {
+                  @for (s of [0, 1, 2, 3]; track s) {
+                    <tr class="h-[52px] border-b border-line-2">
+                      <td class="px-4"><div class="sk size-5 rounded-full"></div></td>
+                      <td class="px-3"><div class="sk h-3 w-28"></div></td>
+                      <td class="px-3"><div class="sk h-3 w-10"></div></td>
+                      <td class="px-3"><div class="sk h-3 w-10"></div></td>
+                      <td class="px-4"><div class="sk ml-auto h-3 w-20"></div></td>
+                    </tr>
+                  }
+                } @else {
+                  @for (c of categories(); track c.id) {
+                    <tr
+                      class="row-h rise h-[52px] cursor-pointer border-b border-line-2 last:border-b-0"
+                      [class.bg-accent-tint]="selectedCatId() === c.id"
+                      (click)="selectedCatId.set(c.id)"
+                    >
+                      <td class="px-4">
+                        <p-radiobutton
+                          name="cat-sel"
+                          [value]="c.id"
+                          [ngModel]="selectedCatId()"
+                          (ngModelChange)="selectedCatId.set($event)"
+                          [inputId]="'cat-' + c.id"
+                          [ariaLabel]="('common.select' | transloco) + ': ' + c.name"
+                        />
+                      </td>
+                      <td class="px-3 font-medium">{{ c.name }}</td>
+                      <td class="px-3 text-ink-2">{{ c.rooms }}</td>
+                      <td class="px-3 text-ink-2">{{ c.beds }}</td>
+                      <td class="px-4 text-right font-semibold tabular-nums">
+                        {{ c.price | sum }}
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="px-4 py-10 text-center">
+                        <span class="block text-[15px] font-semibold">{{
+                          'common.noData' | transloco
+                        }}</span>
+                        <span class="text-[13px] text-muted">{{
+                          'settings.rates.empty' | transloco
+                        }}</span>
+                      </td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </p-tabpanel>
+
+      <!-- ===== Журнал действий ===== -->
+      <p-tabpanel value="log">
+        <!-- Заголовок раздела — во вкладке «Журнал действий» -->
+        <section class="rise flex flex-col gap-3">
+          <div class="overflow-hidden rounded-xl border border-line bg-white">
+            <app-data-grid
+              [rows]="log()"
+              [columns]="logColumns()"
+              [loading]="logLoading()"
+              [getRowId]="logRowId"
+              noMatchText="settings.log.empty"
+              [minWidth]="760"
+            />
+          </div>
+        </section>
+      </p-tabpanel>
+    </p-tabpanels>
+  </p-tabs>
+</div>
+
+@if (dirty()) {
+  <div class="unsaved-bar" role="region" [attr.aria-label]="'settings.unsaved' | transloco">
+    <span class="text-sm font-medium">{{ 'settings.unsaved' | transloco }}</span>
+    <div class="flex gap-2">
+      <button
+        type="button"
+        class="h-10 cursor-pointer rounded-lg border border-white/30 bg-transparent px-3.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
+        (click)="discard()"
+      >
+        {{ 'common.discard' | transloco }}
+      </button>
+      <button pButton type="button" class="h-10" [loading]="saving()" (click)="saveHotel()">
+        @if (!saving()) {
+          <app-icon name="check" />
+        }
+        <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+      </button>
+    </div>
+  </div>
+}
+
+<p-dialog
+  [(visible)]="catFormOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="
+    (catEditId() === null ? 'settings.rates.addTitle' : 'settings.rates.editTitle') | transloco
+  "
+  [style]="{ width: '480px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  <form
+    [formGroup]="catForm"
+    (ngSubmit)="saveCat()"
+    id="cat-form"
+    class="grid grid-cols-2 gap-4"
+    novalidate
+  >
+    <div class="field col-span-full">
+      <label for="c-name" class="field-label"
+        >{{ 'settings.rates.form.name' | transloco }} <span class="req">*</span></label
+      >
+      <input
+        id="c-name"
+        pInputText
+        formControlName="name"
+        [placeholder]="'settings.rates.form.namePlaceholder' | transloco"
+        [invalid]="catInvalid('name')"
+        [attr.aria-invalid]="catInvalid('name')"
+      />
+    </div>
+    <div class="field">
+      <label for="c-rooms" class="field-label">{{ 'settings.rates.col.rooms' | transloco }}</label>
+      <input id="c-rooms" pInputText appSum formControlName="rooms" placeholder="0" />
+    </div>
+    <div class="field">
+      <label for="c-beds" class="field-label">{{ 'settings.rates.col.beds' | transloco }}</label>
+      <input
+        id="c-beds"
+        pInputText
+        formControlName="beds"
+        [placeholder]="'settings.rates.form.bedsPlaceholder' | transloco"
+      />
+    </div>
+    <div class="field col-span-full">
+      <label for="c-price" class="field-label"
+        >{{ 'settings.rates.form.price' | transloco }} <span class="req">*</span></label
+      >
+      <div class="relative">
+        <input
+          id="c-price"
+          pInputText
+          appSum
+          formControlName="price"
+          placeholder="0"
+          class="w-full pr-12"
+          [invalid]="catInvalid('price')"
+          [attr.aria-invalid]="catInvalid('price')"
+        />
+        <span
+          class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+          >{{ 'common.currency' | transloco }}</span
+        >
+      </div>
+    </div>
+  </form>
+  <ng-template #footer>
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      [outlined]="true"
+      (click)="catFormOpen.set(false)"
+    >
+      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+    </button>
+    <button pButton type="submit" form="cat-form" [loading]="saving()">
+      @if (!saving()) {
+        <app-icon name="check" />
+      }
+      <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>
+
+<app-confirm-dialog
+  [(visible)]="confirmOpen"
+  title="settings.rates.confirmTitle"
+  text="settings.rates.confirmText"
+  [params]="{ name: selectedCat()?.name ?? '' }"
+  [busy]="saving()"
+  (confirm)="doDeleteCat()"
+/>

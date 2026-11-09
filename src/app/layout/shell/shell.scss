@@ -1,0 +1,156 @@
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s;
+
+  &:focus {
+    top: 12px;
+    color: #fff;
+  }
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink-2);
+  transition:
+    background-color 0.18s,
+    color 0.18s;
+
+  &:hover {
+    background: var(--color-chip);
+    color: var(--color-ink);
+  }
+
+  &.nav-active {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.18s;
+
+  &:hover {
+    background: var(--color-chip);
+  }
+}
+
+.logout-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+
+  &:hover {
+    background: var(--color-danger-soft);
+    border-color: var(--color-danger-line);
+  }
+}
+
+.tab-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-muted);
+
+  &.tab-active {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+}
+
+/* Счётчик новых комментариев */
+.nav-badge {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--color-danger-strong);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-badge {
+  position: absolute;
+  top: -1px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-danger-strong);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Сайдбар: 248px, свёрнутый — 76px (логотип и иконки) */
+.sidebar {
+  width: 248px;
+  padding-inline: 16px;
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease;
+}
+
+.sidebar-collapsed {
+  width: 76px;
+  padding-inline: 12px;
+
+  .nav-link {
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}

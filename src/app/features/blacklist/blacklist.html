@@ -1,0 +1,135 @@
+@if (!bp.isMobile()) {
+  <div class="flex flex-col gap-4 px-6 pt-5 pb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="m-0 text-2xl font-bold tracking-[-0.01em]">
+          {{ 'blacklist.title' | transloco }}
+        </h1>
+        <p class="mt-0.5 mb-0 text-[13px] text-muted">{{ 'blacklist.subtitle' | transloco }}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="askRemove()"
+        >
+          <app-icon name="check-circle" />
+          <span pButtonLabel>{{ 'blacklist.remove' | transloco }}</span>
+        </button>
+        <button pButton type="button" severity="danger" (click)="addOpen.set(true)">
+          <app-icon name="ban" />
+          <span pButtonLabel>{{ 'common.add' | transloco }}</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="overflow-hidden rounded-xl border border-line bg-white">
+      <app-data-grid
+        [rows]="rows()"
+        [columns]="columns()"
+        [loading]="loading()"
+        [selectable]="true"
+        [getRowId]="rowId"
+        emptyText="blacklist.empty"
+        noMatchText="guests.noMatches"
+        [minWidth]="1080"
+        (selection)="selected.set($event)"
+      />
+    </section>
+  </div>
+} @else {
+  <header class="flex shrink-0 flex-col gap-2.5 border-b border-line-2 bg-white px-4 pt-3.5 pb-3">
+    <div>
+      <h1 class="m-0 text-xl font-bold">{{ 'blacklist.title' | transloco }}</h1>
+      <p class="mt-0.5 mb-0 text-xs text-muted">
+        {{ 'blacklist.subtitleMobile' | transloco: { count: rows().length } }}
+      </p>
+    </div>
+    <label
+      class="flex h-11 items-center gap-2 rounded-xl border border-field px-3 text-muted focus-within:border-accent"
+    >
+      <app-icon name="search" />
+      <input
+        type="search"
+        class="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none"
+        [attr.aria-label]="'guests.mobile.search' | transloco"
+        [placeholder]="'guests.mobile.search' | transloco"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
+    </label>
+  </header>
+
+  <div class="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-3 pb-24">
+    @if (loading()) {
+      @for (s of [0, 1, 2]; track s) {
+        <div class="flex flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white p-3.5">
+          <div class="sk h-3 w-3/5"></div>
+          <div class="sk h-2.5 w-4/5"></div>
+        </div>
+      }
+    } @else if (mobileRows().length === 0) {
+      <div class="rise flex flex-col items-center gap-2 px-4 py-12 text-center">
+        <span class="text-[15px] font-semibold">{{ 'common.noData' | transloco }}</span>
+        <span class="text-[13px] text-muted">{{ 'blacklist.empty' | transloco }}</span>
+      </div>
+    } @else {
+      @for (e of mobileRows(); track e.id; let i = $index) {
+        <article
+          class="rise flex flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white px-3.5 py-3"
+          [style.animation-delay.ms]="(i % 8) * 30"
+        >
+          <div class="flex items-center gap-2.5">
+            <span
+              class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#FEE4E2] text-xs font-bold text-danger"
+              aria-hidden="true"
+              >{{ initials(e) }}</span
+            >
+            <div class="flex min-w-0 flex-1 flex-col gap-px">
+              <span class="truncate text-[15px] font-semibold"
+                >{{ e.lastName }} {{ e.firstName }}</span
+              >
+              <span class="text-xs text-muted"
+                >{{ e.doc }} · {{ 'countries.' + e.country | transloco }}</span
+              >
+            </div>
+            <button
+              type="button"
+              class="tap flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-line-2 bg-white text-ink-2"
+              [attr.aria-label]="'blacklist.removeAria' | transloco: { name: e.lastName + ' ' + e.firstName }"
+              (click)="askRemove(e)"
+            >
+              <app-icon name="check-circle" />
+            </button>
+          </div>
+          <p class="m-0 border-t border-chip pt-2.5 text-[13px] leading-normal text-ink-2">
+            {{ e.reason }}
+          </p>
+          <span class="text-[11px] text-muted">{{
+            'blacklist.addedOn' | transloco: { date: (e.addedAt | dmy), who: e.addedBy }
+          }}</span>
+        </article>
+      }
+    }
+  </div>
+
+  <button type="button" class="fab tap !bg-danger" (click)="addOpen.set(true)">
+    <app-icon name="plus" [stroke]="2.2" />
+    {{ 'common.add' | transloco }}
+  </button>
+}
+
+<app-blacklist-dialog [(visible)]="addOpen" (added)="onAdded($event)" />
+
+<app-confirm-dialog
+  [(visible)]="confirmOpen"
+  title="blacklist.confirm.title"
+  text="blacklist.confirm.text"
+  [params]="{ name: targetName() }"
+  confirmLabel="blacklist.remove"
+  [busy]="removing()"
+  (confirm)="remove()"
+/>

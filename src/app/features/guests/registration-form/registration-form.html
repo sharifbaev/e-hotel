@@ -1,0 +1,449 @@
+<form
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+  novalidate
+  class="flex flex-col"
+  [class.gap-5]="!compact()"
+  [class.gap-4]="compact()"
+>
+  <!-- Гражданство -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <p class="m-0 text-[13px] text-muted">{{ 'guests.reg.requiredHint' | transloco }}</p>
+    <div role="group" [attr.aria-label]="'guests.reg.citizenship' | transloco" class="seg">
+      <button
+        type="button"
+        [class.seg-on]="!foreign()"
+        [attr.aria-pressed]="!foreign()"
+        (click)="setForeign(false)"
+      >
+        {{ 'guests.reg.resident' | transloco }}
+      </button>
+      <button
+        type="button"
+        [class.seg-on]="foreign()"
+        [attr.aria-pressed]="foreign()"
+        (click)="setForeign(true)"
+      >
+        {{ 'guests.reg.foreigner' | transloco }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Документ -->
+  <fieldset class="reg-section">
+    <legend class="reg-legend">{{ 'guests.reg.document' | transloco }}</legend>
+    <!-- Тип, серия и номер, дата выдачи и срок действия — в один ряд -->
+    <div class="reg-grid" [class.reg-grid-compact]="compact()" [class.reg-grid-4]="!compact()">
+      @if (!compact()) {
+        <div class="field">
+          <label [attr.for]="uid + 'd-type'" class="field-label">{{ 'guests.reg.docType' | transloco }}</label>
+          <p-select
+            [inputId]="uid + 'd-type'"
+            formControlName="docType"
+            [options]="docTypes"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-d>{{ 'docTypes.' + d | transloco }}</ng-template>
+            <ng-template #item let-d>{{ 'docTypes.' + d | transloco }}</ng-template>
+          </p-select>
+        </div>
+      }
+      <div class="field" [class.col-span-full]="compact()">
+        <label [attr.for]="uid + 'd-num'" class="field-label"
+          >{{ 'guests.reg.docNumber' | transloco }} <span class="req">*</span></label
+        >
+        <div class="flex gap-2">
+          <input
+            [id]="uid + 'd-num'"
+            pInputText
+            formControlName="doc"
+            placeholder="AB 1234567"
+            class="min-w-0 flex-1 uppercase"
+            autocomplete="off"
+            (input)="toUpper()"
+            (keydown.enter)="$event.preventDefault(); lookup()"
+            [invalid]="invalid('doc')"
+            [attr.aria-invalid]="invalid('doc')"
+            [attr.aria-describedby]="uid + 'd-num-hint'"
+          />
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [outlined]="true"
+            class="w-11 shrink-0 !px-0"
+            [attr.aria-label]="'guests.reg.lookup' | transloco"
+            [title]="'guests.reg.lookup' | transloco"
+            [disabled]="searching()"
+            (click)="lookup()"
+          >
+            <app-icon [name]="searching() ? 'spinner' : 'search'" [stroke]="2.2" />
+          </button>
+        </div>
+        <span [id]="uid + 'd-num-hint'" class="hint">{{ 'guests.reg.lookupHint' | transloco }}</span>
+      </div>
+      @if (!compact() || extraOpen()) {
+        <div class="field">
+          <label [attr.for]="uid + 'd-issued'" class="field-label">{{ 'guests.reg.issuedAt' | transloco }}</label>
+          <p-datepicker
+            [inputId]="uid + 'd-issued'"
+            formControlName="issuedAt"
+            dateFormat="dd.mm.yy"
+            [fluid]="true"
+            appendTo="body"
+          />
+        </div>
+        <div class="field">
+          <label [attr.for]="uid + 'd-exp'" class="field-label">{{ 'guests.reg.expiresAt' | transloco }}</label>
+          <p-datepicker
+            [inputId]="uid + 'd-exp'"
+            formControlName="expiresAt"
+            dateFormat="dd.mm.yy"
+            [fluid]="true"
+            appendTo="body"
+          />
+        </div>
+        <div class="field col-span-full">
+          <label [attr.for]="uid + 'd-by'" class="field-label">{{ 'guests.reg.issuedBy' | transloco }}</label>
+          <input
+            [id]="uid + 'd-by'"
+            pInputText
+            formControlName="issuedBy"
+            [class.filled]="filled()"
+            [placeholder]="'guests.reg.issuedByPlaceholder' | transloco"
+          />
+        </div>
+      }
+    </div>
+  </fieldset>
+
+  <!-- Личные данные -->
+  <fieldset class="reg-section">
+    <legend class="reg-legend">{{ 'guests.reg.personal' | transloco }}</legend>
+    <div class="reg-grid" [class.reg-grid-compact]="compact()">
+      <div class="field">
+        <label [attr.for]="uid + 'g-last'" class="field-label"
+          >{{ 'guests.reg.lastName' | transloco }} <span class="req">*</span></label
+        >
+        <input
+          [id]="uid + 'g-last'"
+          pInputText
+          formControlName="lastName"
+          autocomplete="family-name"
+          [class.filled]="filled()"
+          [invalid]="invalid('lastName')"
+          [attr.aria-invalid]="invalid('lastName')"
+        />
+      </div>
+      <div class="field">
+        <label [attr.for]="uid + 'g-first'" class="field-label"
+          >{{ 'guests.reg.firstName' | transloco }} <span class="req">*</span></label
+        >
+        <input
+          [id]="uid + 'g-first'"
+          pInputText
+          formControlName="firstName"
+          autocomplete="given-name"
+          [class.filled]="filled()"
+          [invalid]="invalid('firstName')"
+          [attr.aria-invalid]="invalid('firstName')"
+        />
+      </div>
+      @if (!compact() || extraOpen()) {
+        <div class="field">
+          <label [attr.for]="uid + 'g-mid'" class="field-label">{{ 'guests.reg.middleName' | transloco }}</label>
+          <input
+            [id]="uid + 'g-mid'"
+            pInputText
+            formControlName="middleName"
+            autocomplete="additional-name"
+            [class.filled]="filled()"
+          />
+        </div>
+        <div class="field">
+          <label [attr.for]="uid + 'g-birth'" class="field-label">{{ 'guests.reg.birthDate' | transloco }}</label>
+          <p-datepicker
+            [inputId]="uid + 'g-birth'"
+            formControlName="birthDate"
+            dateFormat="dd.mm.yy"
+            [fluid]="true"
+            appendTo="body"
+          />
+        </div>
+        <div class="field">
+          <label [attr.for]="uid + 'g-sex'" class="field-label">{{ 'guests.reg.sex' | transloco }}</label>
+          <p-select
+            [inputId]="uid + 'g-sex'"
+            formControlName="sex"
+            [options]="sexes"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-x>{{ 'sex.' + x | transloco }}</ng-template>
+            <ng-template #item let-x>{{ 'sex.' + x | transloco }}</ng-template>
+          </p-select>
+        </div>
+      }
+      <div class="field">
+        <label [attr.for]="uid + 'g-country'" class="field-label">{{ 'guests.reg.country' | transloco }}</label>
+        <p-select
+          [inputId]="uid + 'g-country'"
+          formControlName="country"
+          [options]="countries"
+          [filter]="!compact()"
+          appendTo="body"
+          [fluid]="true"
+        >
+          <ng-template #selectedItem let-c>{{ 'countries.' + c | transloco }}</ng-template>
+          <ng-template #item let-c>{{ 'countries.' + c | transloco }}</ng-template>
+        </p-select>
+      </div>
+      @if (!compact() || extraOpen()) {
+        <div class="field">
+          <label [attr.for]="uid + 'g-nat'" class="field-label">{{ 'guests.reg.nationality' | transloco }}</label>
+          <input
+            [id]="uid + 'g-nat'"
+            pInputText
+            formControlName="nationality"
+            [class.filled]="filled()"
+            [placeholder]="'guests.reg.nationalityPlaceholder' | transloco"
+          />
+        </div>
+        <div class="field">
+          <label [attr.for]="uid + 'g-phone'" class="field-label">{{ 'guests.reg.phone' | transloco }}</label>
+          <input
+            [id]="uid + 'g-phone'"
+            pInputText
+            formControlName="phone"
+            type="tel"
+            autocomplete="tel"
+            [class.filled]="filled()"
+            placeholder="+998 __ ___ __ __"
+          />
+        </div>
+      }
+      <div class="field">
+        <label [attr.for]="uid + 'g-city'" class="field-label">{{ 'guests.reg.cityFrom' | transloco }}</label>
+        <input
+          [id]="uid + 'g-city'"
+          pInputText
+          formControlName="cityFrom"
+          [class.filled]="filled()"
+          [placeholder]="'guests.reg.cityPlaceholder' | transloco"
+        />
+      </div>
+      @if (!compact() || extraOpen()) {
+        <div class="field col-span-full">
+          <label [attr.for]="uid + 'g-addr'" class="field-label">{{ 'guests.reg.address' | transloco }}</label>
+          <input
+            [id]="uid + 'g-addr'"
+            pInputText
+            formControlName="address"
+            autocomplete="street-address"
+            [class.filled]="filled()"
+            [placeholder]="'guests.reg.addressPlaceholder' | transloco"
+          />
+        </div>
+      }
+    </div>
+
+    @if (foreign() && (!compact() || extraOpen())) {
+      <div
+        class="rise reg-grid mt-4 rounded-xl border border-[#C6E6E0] bg-accent-tint p-4"
+        [class.reg-grid-compact]="compact()"
+      >
+        <div class="field">
+          <label [attr.for]="uid + 'v-type'" class="field-label">{{ 'guests.reg.visa' | transloco }}</label>
+          <p-select
+            [inputId]="uid + 'v-type'"
+            formControlName="visaType"
+            [options]="visas"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-v>{{ 'visa.' + v | transloco }}</ng-template>
+            <ng-template #item let-v>{{ 'visa.' + v | transloco }}</ng-template>
+          </p-select>
+        </div>
+        <div class="field">
+          <label [attr.for]="uid + 'v-entry'" class="field-label">{{ 'guests.reg.entryDate' | transloco }}</label>
+          <p-datepicker
+            [inputId]="uid + 'v-entry'"
+            formControlName="entryDate"
+            dateFormat="dd.mm.yy"
+            [fluid]="true"
+            appendTo="body"
+          />
+        </div>
+        <div class="field">
+          <label [attr.for]="uid + 'v-kpp'" class="field-label">{{ 'guests.reg.entryPoint' | transloco }}</label>
+          <input
+            [id]="uid + 'v-kpp'"
+            pInputText
+            formControlName="entryPoint"
+            [placeholder]="'guests.reg.entryPointPlaceholder' | transloco"
+          />
+        </div>
+      </div>
+    }
+  </fieldset>
+
+  <!-- Проживание и оплата -->
+  <fieldset class="reg-section">
+    <legend class="reg-legend">{{ 'guests.reg.stay' | transloco }}</legend>
+    <div class="reg-grid" [class.reg-grid-compact]="compact()">
+      <div class="field">
+        <label [attr.for]="uid + 's-room'" class="field-label"
+          >{{ 'guests.reg.room' | transloco }} <span class="req">*</span></label
+        >
+        <p-select
+          [inputId]="uid + 's-room'"
+          formControlName="room"
+          [options]="roomOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [placeholder]="'guests.reg.roomPlaceholder' | transloco"
+          appendTo="body"
+          [fluid]="true"
+          [invalid]="invalid('room')"
+        />
+      </div>
+      <div class="field">
+        <label [attr.for]="uid + 's-in'" class="field-label">{{ 'guests.reg.checkin' | transloco }}</label>
+        <p-datepicker
+          [inputId]="uid + 's-in'"
+          formControlName="checkin"
+          [showTime]="!compact()"
+          hourFormat="24"
+          dateFormat="dd.mm.yy"
+          [fluid]="true"
+          appendTo="body"
+        />
+      </div>
+      <div class="field">
+        <label [attr.for]="uid + 's-out'" class="field-label">{{ 'guests.reg.checkout' | transloco }}</label>
+        <p-datepicker
+          [inputId]="uid + 's-out'"
+          formControlName="checkout"
+          [showTime]="!compact()"
+          hourFormat="24"
+          dateFormat="dd.mm.yy"
+          [fluid]="true"
+          appendTo="body"
+        />
+      </div>
+      @if (!compact() || extraOpen()) {
+        <div class="field">
+          <label [attr.for]="uid + 's-goal'" class="field-label">{{ 'guests.reg.purpose' | transloco }}</label>
+          <p-select
+            [inputId]="uid + 's-goal'"
+            formControlName="purpose"
+            [options]="purposes"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-p>{{ 'purpose.' + p | transloco }}</ng-template>
+            <ng-template #item let-p>{{ 'purpose.' + p | transloco }}</ng-template>
+          </p-select>
+        </div>
+      }
+      <div class="field">
+        <label [attr.for]="uid + 's-sum'" class="field-label"
+          >{{ 'guests.reg.amount' | transloco }} <span class="req">*</span></label
+        >
+        <div class="relative">
+          <input
+            [id]="uid + 's-sum'"
+            pInputText
+            appSum
+            formControlName="amount"
+            placeholder="0"
+            class="w-full pr-12"
+            [invalid]="invalid('amount')"
+            [attr.aria-invalid]="invalid('amount')"
+            [attr.aria-describedby]="uid + 's-sum-hint'"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+            >{{ 'common.currency' | transloco }}</span
+          >
+        </div>
+        <span [id]="uid + 's-sum-hint'" class="hint">{{ 'guests.reg.amountHint' | transloco }}</span>
+      </div>
+      @if (!compact() || extraOpen()) {
+        <div class="field">
+          <label [attr.for]="uid + 's-pay'" class="field-label">{{ 'guests.reg.payment' | transloco }}</label>
+          <p-select
+            [inputId]="uid + 's-pay'"
+            formControlName="payment"
+            [options]="payments"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-p>{{ 'paymentMethods.' + p | transloco }}</ng-template>
+            <ng-template #item let-p>{{ 'paymentMethods.' + p | transloco }}</ng-template>
+          </p-select>
+        </div>
+      }
+    </div>
+
+    <!-- Фискальный чек: сохраняется на гостя и доступен в «Архиве гостей» -->
+    <label
+      [attr.for]="uid + 's-fiscal'"
+      class="qr-option mt-3"
+      [class.qr-option-on]="form.controls.fiscalReceipt.value"
+    >
+      <p-checkbox [inputId]="uid + 's-fiscal'" formControlName="fiscalReceipt" [binary]="true" />
+      <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span class="text-sm font-semibold text-ink">{{ 'guests.reg.saveFiscal' | transloco }}</span>
+        <span class="text-[13px] leading-normal text-muted">{{
+          'guests.reg.saveFiscalHint' | transloco
+        }}</span>
+      </span>
+      <span
+        class="flex size-9 shrink-0 items-center justify-center rounded-lg border border-line-2 bg-white"
+        [class.text-accent]="form.controls.fiscalReceipt.value"
+        [class.text-faint]="!form.controls.fiscalReceipt.value"
+        aria-hidden="true"
+      >
+        <app-icon name="receipt" [size]="20" [stroke]="2" />
+      </span>
+    </label>
+
+  </fieldset>
+
+  @if (compact()) {
+    <button
+      type="button"
+      class="tap flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-field bg-white text-sm font-semibold text-ink-2"
+      [attr.aria-expanded]="extraOpen()"
+      (click)="extraOpen.set(!extraOpen())"
+    >
+      {{ (extraOpen() ? 'guests.reg.lessFields' : 'guests.reg.moreFields') | transloco }}
+      <app-icon name="chevron-down" [class.rotate-180]="extraOpen()" class="transition-transform" />
+    </button>
+  }
+
+  @if (!multi()) {
+    <div class="flex gap-2.5" [class.justify-end]="!compact()" [class.reg-actions]="!compact()">
+      @if (!compact()) {
+        <button pButton type="button" severity="secondary" [outlined]="true" (click)="cancel.emit()">
+          <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+        </button>
+      }
+      <button
+        pButton
+        type="submit"
+        [loading]="saving()"
+        [class.w-full]="compact()"
+        [class.h-12]="compact()"
+      >
+        @if (!saving()) {
+          <app-icon name="check" />
+        }
+        <span pButtonLabel>{{ 'guests.reg.submit' | transloco }}</span>
+      </button>
+    </div>
+  }
+</form>

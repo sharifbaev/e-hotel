@@ -1,0 +1,363 @@
+@if (!bp.isMobile()) {
+  <div class="flex flex-col gap-4 px-6 pt-5 pb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="m-0 text-2xl font-bold tracking-[-0.01em]">{{ 'guests.title' | transloco }}</h1>
+        <p class="mt-0.5 mb-0 text-[13px] text-muted">
+          {{ 'guests.subtitle' | transloco }} · {{ 'guestInfo.dblHint' | transloco }}
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="loading()"
+          (click)="reload()"
+        >
+          <app-icon name="refresh" [class.spin]="loading()" />
+          <span pButtonLabel>{{ 'common.refresh' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="!selected()?.receipt"
+          [title]="selected() && !selected()?.receipt ? ('guests.receiptNone' | transloco) : ''"
+          (click)="openReceipt()"
+        >
+          <app-icon name="receipt" />
+          <span pButtonLabel>{{ 'guests.receipt' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="openBlacklist()"
+        >
+          <app-icon name="ban" />
+          <span pButtonLabel>{{ 'book.toBlacklist' | transloco }}</span>
+        </button>
+        <button pButton type="button" (click)="openReg()">
+          <app-icon name="user-plus" />
+          <span pButtonLabel>{{ 'guests.add' | transloco }}</span>
+        </button>
+      </div>
+    </div>
+
+    @if (search()) {
+      <div class="rise flex items-center gap-2 text-[13px] text-ink-2">
+        <app-icon name="search" [size]="16" />
+        {{ 'guests.searchFor' | transloco: { q: search() } }}
+        <button
+          type="button"
+          class="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#C6E6E0] bg-accent-tint px-2.5 py-1 text-xs font-semibold text-accent-dark"
+          (click)="search.set('')"
+        >
+          {{ 'common.resetSearch' | transloco }}
+          <app-icon name="close" [size]="14" />
+        </button>
+      </div>
+    }
+
+    <section class="overflow-hidden rounded-xl border border-line bg-white">
+      <app-data-grid
+        [rows]="rows()"
+        [columns]="columns()"
+        [loading]="loading()"
+        [getRowId]="rowId"
+        [quickFilter]="search()"
+        [selectable]="true"
+        (selection)="selected.set($event)"
+        [details]="false"
+        (rowDoubleClick)="openInfo($event)"
+        emptyText="guests.emptyArchive"
+        noMatchText="guests.noMatches"
+        [minWidth]="960"
+      />
+    </section>
+  </div>
+} @else {
+  <!-- ===== Мобильная версия ===== -->
+  <header class="flex shrink-0 flex-col gap-2.5 border-b border-line-2 bg-white px-4 pt-3.5 pb-3">
+    <div>
+      <h1 class="m-0 text-xl font-bold">{{ 'guests.title' | transloco }}</h1>
+      <p class="mt-0.5 mb-0 text-xs text-muted">
+        {{ 'guests.mobile.subtitle' | transloco: { count: rows().length } }}
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <label
+        class="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-field px-3 text-muted focus-within:border-accent"
+      >
+        <app-icon name="search" />
+        <input
+          type="search"
+          class="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none"
+          [attr.aria-label]="'guests.mobile.search' | transloco"
+          [placeholder]="'guests.mobile.search' | transloco"
+          [ngModel]="search()"
+          (ngModelChange)="search.set($event); shown.set(6)"
+        />
+      </label>
+      <button
+        type="button"
+        class="tap relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-field bg-white text-ink-2"
+        [attr.aria-label]="'guests.mobile.filters' | transloco"
+        (click)="openFilters()"
+      >
+        <app-icon name="filter" />
+        @if (activeChips().length) {
+          <span
+            class="absolute top-2 right-2 size-2 rounded-full bg-accent"
+            aria-hidden="true"
+          ></span>
+        }
+      </button>
+    </div>
+    @if (activeChips().length) {
+      <div class="no-scrollbar flex gap-1.5 overflow-x-auto">
+        @for (c of activeChips(); track c.key) {
+          <button
+            type="button"
+            class="tap rise flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[#C6E6E0] bg-accent-tint px-2.5 text-xs font-semibold text-[#0B4F49]"
+            [attr.aria-label]="
+              ('common.removeFilter' | transloco) + ': ' + (c.label | transloco: c.params)
+            "
+            (click)="removeChip(c.key)"
+          >
+            {{ c.label | transloco: c.params }}
+            <app-icon name="close" [size]="14" />
+          </button>
+        }
+      </div>
+    }
+  </header>
+
+  <div class="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-3 pb-24">
+    <div class="flex items-center justify-between px-0.5 text-xs text-muted">
+      <span>{{ 'guests.mobile.sort.' + filters().sort | transloco }}</span>
+      @if (!loading()) {
+        <span>{{
+          'guests.mobile.shown'
+            | transloco: { shown: visibleMobile().length, total: mobileRows().length }
+        }}</span>
+      }
+    </div>
+
+    @if (loading()) {
+      @for (s of [0, 1, 2, 3, 4]; track s) {
+        <div class="flex flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white p-3.5">
+          <div class="flex items-center gap-2.5">
+            <div class="sk size-9 rounded-full"></div>
+            <div class="flex flex-1 flex-col gap-1.5">
+              <div class="sk h-3 w-3/5"></div>
+              <div class="sk h-2.5 w-2/5"></div>
+            </div>
+          </div>
+          <div class="sk h-2.5 w-4/5"></div>
+        </div>
+      }
+    } @else if (mobileRows().length === 0) {
+      <div class="rise flex flex-col items-center gap-2.5 px-4 py-12 text-center">
+        <div class="flex size-14 items-center justify-center rounded-full bg-line-2 text-[#667085]">
+          <app-icon name="list-search" [size]="26" [stroke]="1.8" />
+        </div>
+        <span class="text-[15px] font-semibold">{{ 'common.noData' | transloco }}</span>
+        <span class="text-[13px] text-muted">{{ 'guests.mobile.emptyText' | transloco }}</span>
+        <button
+          type="button"
+          class="tap h-11 cursor-pointer rounded-xl border border-field bg-white px-4 text-sm font-medium text-ink-2"
+          (click)="resetAll()"
+        >
+          {{ 'guests.mobile.resetAll' | transloco }}
+        </button>
+      </div>
+    } @else {
+      @for (g of visibleMobile(); track g.id; let i = $index) {
+        <!-- Нажатие на карточку — полная информация о госте -->
+        <button
+          type="button"
+          class="tap rise flex w-full cursor-pointer flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white px-3.5 py-3 text-left"
+          [style.animation-delay.ms]="(i % 6) * 30"
+          (click)="openInfo(g)"
+        >
+          <span class="flex w-full items-center gap-2.5">
+            <span
+              class="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+              [class]="isBanned(g) ? 'bg-[#FEE4E2] text-danger' : 'bg-chip text-ink-2'"
+              aria-hidden="true"
+              >{{ initials(g) }}</span
+            >
+            <span class="flex min-w-0 flex-1 flex-col gap-px">
+              <span class="truncate text-[15px] font-semibold text-ink"
+                >{{ g.lastName }} {{ g.firstName }}</span
+              >
+              <span class="text-xs text-muted"
+                >{{ g.doc }} · {{ 'countries.' + g.country | transloco }}</span
+              >
+            </span>
+            <span class="text-sm font-bold text-ink tabular-nums">{{ g.sum | sum }}</span>
+          </span>
+          <span class="grid w-full grid-cols-3 gap-2 border-t border-chip pt-2.5">
+            <span class="flex flex-col gap-0.5">
+              <span class="text-[11px] text-muted">{{ 'guests.col.room' | transloco }}</span>
+              <span class="text-[13px] font-semibold text-ink">{{ g.room }}</span>
+            </span>
+            <span class="flex flex-col gap-0.5">
+              <span class="text-[11px] text-muted">{{ 'guests.col.checkin' | transloco }}</span>
+              <span class="text-[13px] font-semibold text-ink">{{ g.checkin | dmy }}</span>
+            </span>
+            <span class="flex flex-col gap-0.5">
+              <span class="text-[11px] text-muted">{{ 'guests.col.checkout' | transloco }}</span>
+              <span class="text-[13px] font-semibold text-ink">{{ g.checkout | dmy }}</span>
+            </span>
+          </span>
+          @if (isBanned(g)) {
+            <span class="text-xs font-semibold text-danger">{{ 'book.banned' | transloco }}</span>
+          }
+        </button>
+      }
+      @if (loadingMore()) {
+        <div class="flex flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white p-3.5">
+          <div class="sk h-3 w-3/5"></div>
+          <div class="sk h-2.5 w-4/5"></div>
+        </div>
+      }
+      @if (canMore()) {
+        <button
+          type="button"
+          class="tap h-12 cursor-pointer rounded-xl border border-field bg-white text-sm font-semibold text-ink-2 disabled:text-faint"
+          [disabled]="loadingMore()"
+          (click)="more()"
+        >
+          {{ 'guests.mobile.more' | transloco }}
+        </button>
+      }
+    }
+  </div>
+
+  <button type="button" class="fab tap" (click)="openReg()">
+    <app-icon name="plus" [stroke]="2.2" />
+    {{ 'guests.mobile.fab' | transloco }}
+  </button>
+
+  <!-- Фильтры -->
+  <app-sheet [(visible)]="filtersOpen" [title]="'guests.mobile.filtersTitle' | transloco">
+    <div class="flex flex-col gap-3.5 pb-2">
+      <div class="field">
+        <label for="mf-sort" class="field-label">{{ 'guests.mobile.sortLabel' | transloco }}</label>
+        <p-select
+          inputId="mf-sort"
+          [options]="sorts"
+          [ngModel]="draft().sort"
+          (ngModelChange)="patchDraft({ sort: $event })"
+          [fluid]="true"
+          appendTo="body"
+        >
+          <ng-template #selectedItem let-s>{{ 'guests.mobile.sort.' + s | transloco }}</ng-template>
+          <ng-template #item let-s>{{ 'guests.mobile.sort.' + s | transloco }}</ng-template>
+        </p-select>
+      </div>
+      <div class="field">
+        <label for="mf-country" class="field-label">{{ 'guests.col.country' | transloco }}</label>
+        <p-select
+          inputId="mf-country"
+          [options]="countries"
+          [ngModel]="draft().country"
+          (ngModelChange)="patchDraft({ country: $event })"
+          [showClear]="true"
+          [placeholder]="'common.all' | transloco"
+          [fluid]="true"
+          appendTo="body"
+        >
+          <ng-template #selectedItem let-c>{{ 'countries.' + c | transloco }}</ng-template>
+          <ng-template #item let-c>{{ 'countries.' + c | transloco }}</ng-template>
+        </p-select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="field">
+          <label for="mf-room" class="field-label">{{ 'guests.col.room' | transloco }}</label>
+          <input
+            id="mf-room"
+            pInputText
+            inputmode="numeric"
+            [ngModel]="draft().room"
+            (ngModelChange)="patchDraft({ room: $event })"
+            [placeholder]="'guests.mobile.anyRoom' | transloco"
+          />
+        </div>
+        <div class="field">
+          <label for="mf-month" class="field-label">{{
+            'guests.mobile.monthLabel' | transloco
+          }}</label>
+          <p-select
+            inputId="mf-month"
+            [options]="months"
+            [ngModel]="draft().month"
+            (ngModelChange)="patchDraft({ month: $event })"
+            [showClear]="true"
+            [placeholder]="'guests.mobile.anyMonth' | transloco"
+            [fluid]="true"
+            appendTo="body"
+          >
+            <ng-template #selectedItem let-m>{{ 'months.full.' + +m | transloco }}</ng-template>
+            <ng-template #item let-m>{{ 'months.full.' + +m | transloco }}</ng-template>
+          </p-select>
+        </div>
+      </div>
+    </div>
+    <div sheetFooter class="grid grid-cols-2 gap-2.5">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="h-12"
+        (click)="draft.set({ sort: 'out-desc', country: null, room: '', month: null })"
+      >
+        <span pButtonLabel>{{ 'common.reset' | transloco }}</span>
+      </button>
+      <button pButton type="button" class="h-12" (click)="applyFilters()">
+        <span pButtonLabel>{{ 'common.show' | transloco }}</span>
+      </button>
+    </div>
+  </app-sheet>
+}
+
+<app-blacklist-dialog [(visible)]="blOpen" [person]="blPerson()" (added)="onBlacklisted()" />
+
+<app-guest-info-dialog [(visible)]="infoOpen" [info]="info()">
+  @if (infoGuest()?.receipt) {
+    <button
+      infoActions
+      pButton
+      type="button"
+      severity="secondary"
+      [outlined]="true"
+      (click)="receiptFromInfo()"
+    >
+      <app-icon name="receipt" />
+      <span pButtonLabel>{{ 'guests.receipt' | transloco }}</span>
+    </button>
+  }
+  @if (infoCanBan()) {
+    <button
+      infoActions
+      pButton
+      type="button"
+      severity="danger"
+      [outlined]="true"
+      (click)="banFromInfo()"
+    >
+      <app-icon name="ban" />
+      <span pButtonLabel>{{ 'book.toBlacklist' | transloco }}</span>
+    </button>
+  }
+</app-guest-info-dialog>
+
+<app-fiscal-receipt-dialog [(visible)]="receiptOpen" [receipt]="receipt()" />

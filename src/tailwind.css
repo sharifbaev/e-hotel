@@ -1,0 +1,33 @@
+/* Порядок слоёв: утилиты Tailwind всегда перекрывают стили PrimeNG */
+@layer theme, base, primeng, components, utilities;
+
+@import 'tailwindcss';
+@import 'tailwindcss-primeui';
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Палитра HotelOS (из утверждённого дизайна) */
+  --color-app: #f5f6f8;
+  --color-subtle: #f9fafb;
+  --color-ink: #101828;
+  --color-ink-2: #344054;
+  --color-muted: #475467;
+  --color-faint: #98a2b3;
+  --color-line: #e4e7ec;
+  --color-line-2: #eaecf0;
+  --color-field: #d0d5dd;
+  --color-chip: #f2f4f7;
+
+  --color-accent: #0f766e;
+  --color-accent-dark: #0b5a54;
+  --color-accent-soft: #e6f4f2;
+  --color-accent-tint: #f0f9f7;
+
+  --color-danger: #b42318;
+  --color-danger-strong: #d92d20;
+  --color-danger-soft: #fef3f2;
+  --color-danger-line: #fda29b;
+  --color-success: #067647;
+  --color-warning: #e8a54b;
+}

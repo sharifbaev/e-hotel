@@ -1,0 +1,62 @@
+import { HttpClient } from '@angular/common/http';
+import { Service, inject } from '@angular/core';
+import { Observable, map, tap } from 'rxjs';
+import { API_URL, localDateTime } from '../api/api';
+import { AuthService } from '../auth/auth.service';
+import { ActionLogEntry, HotelSettings, RoomCategory } from '../models';
+
+const normHotel = (h: HotelSettings): HotelSettings => ({
+  ...h,
+  name: h.name ?? '',
+  legalName: h.legalName ?? '',
+  inn: h.inn ?? '',
+  phone: h.phone ?? '',
+  address: h.address ?? '',
+  city: h.city ?? '',
+  currency: h.currency ?? 'UZS',
+});
+
+/** Настройки отеля, категории/тарифы и журнал действий (REST API /settings, /categories, /audit-log). */
+@Service()
+export class SettingsService {
+  private readonly http = inject(HttpClient);
+  private readonly api = inject(API_URL);
+  private readonly auth = inject(AuthService);
+
+  getHotel(): Observable<HotelSettings> {
+    return this.http.get<HotelSettings>(`${this.api}/settings/hotel`).pipe(map(normHotel));
+  }
+
+  /** После сохранения название и город сразу обновляются в шапке. */
+  saveHotel(data: HotelSettings): Observable<HotelSettings> {
+    return this.http.put<HotelSettings>(`${this.api}/settings/hotel`, data).pipe(
+      map(normHotel),
+      tap((h) => this.auth.patchUser({ hotelName: h.name, hotelCity: h.city })),
+    );
+  }
+
+  listCategories(): Observable<RoomCategory[]> {
+    return this.http.get<RoomCategory[]>(`${this.api}/categories`);
+  }
+
+  /** rooms считает сервер — в запрос не входит. */
+  saveCategory(data: Omit<RoomCategory, 'id'>, id: number | null): Observable<RoomCategory> {
+    const body = { name: data.name.trim(), beds: data.beds, price: data.price };
+    return id === null
+      ? this.http.post<RoomCategory>(`${this.api}/categories`, body)
+      : this.http.put<RoomCategory>(`${this.api}/categories/${id}`, body);
+  }
+
+  removeCategory(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.api}/categories/${id}`);
+  }
+
+  /** Весь журнал (новые сверху); фильтры по сотруднику, действию и периоду — в таблице. */
+  log(): Observable<ActionLogEntry[]> {
+    return this.http
+      .get<ActionLogEntry[]>(`${this.api}/audit-log`)
+      .pipe(
+        map((list) => list.map((l) => ({ ...l, at: localDateTime(l.at), params: l.params ?? {} }))),
+      );
+  }
+}

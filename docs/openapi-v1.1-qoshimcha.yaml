@@ -1,0 +1,1375 @@
+# HotelOS (e-hotel) — OpenAPI v1.1 QO‘SHIMCHA. Faqat v1.0 (openapi.yaml) dan keyingi o‘zgarishlar.
+# openapi.yaml bilan bir papkada saqlang: $ref lar unga havola qiladi.
+openapi: 3.1.0
+info:
+  title: HotelOS (e-hotel) API — v1.1 qo‘shimcha
+  version: '1.1'
+  description: 'FAQAT v1.0 (openapi.yaml, 29.10.2026) dan keyin qo‘shilgan yoki o‘zgargan yo‘llar va sxemalar. Yangilangan:
+    07.11.2026 (kechqurun).
+
+
+    Qanday o‘qish: bu fayldagi yo‘l yoki sxema openapi.yaml dagi xuddi shu nomli yo‘l/sxemani TO‘LIQ almashtiradi; bu yerda
+    yo‘q narsalar o‘zgarmagan. «YANGI» — yangi narsa, «O‘ZGARDI» — o‘zgargan. Boshqa sxemalarga havolalar ($ref: openapi.yaml#/...)
+    — asosiy fayl shu papkada yonida turishi kerak.
+
+
+    Umumiy qoida o‘zgarishi: IsoDateTime endi YYYY-MM-DDTHH:mm yoki YYYY-MM-DDTHH:mm:ss (pattern ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$).
+    Server qo‘yadigan vaqtlar (BlacklistEntry.addedAt, StaffUser.lastLogin, GuestComment.at, ActionLogEntry.at, Receipt.createdAt,
+    ArchivedGuest.checkout) — doim soniyalar bilan. Batafsil — hotelos-api-v1.1-qoshimcha.pdf.'
+servers:
+- url: /api/v1
+security:
+- bearer: []
+tags:
+- name: services
+  description: YANGI. Qo‘shimcha xizmatlar («To‘lovlar va xarajatlar» menyusi, 2-tab).
+- name: debts
+  description: YANGI. Qarzlar («To‘lovlar va xarajatlar» menyusi, 3-tab).
+- name: expenses
+  description: Xarajatlar («To‘lovlar va xarajatlar» menyusi, 1-tab) va xodimlar ro‘yxati.
+- name: book
+- name: rooms
+- name: guests
+- name: users
+- name: settings
+paths:
+  /expenses:
+    get:
+      tags:
+      - expenses
+      summary: 'Xarajatlar ro‘yxati (O‘ZGARDI: date — sana va vaqt)'
+      operationId: getExpenses
+      description: 'Kirish: expenses ≥ 1.
+
+
+        - O‘ZGARDI: Expense.date endi sana va vaqt (soniyalar bilan), qarang Expense.
+
+        - from/to — kunlar bo‘yicha, kiritilgan holda: date ≥ from 00:00:00 va date ≤ to 23:59:59.
+
+        - Yangilari yuqorida (date, keyin id bo‘yicha kamayish).
+
+
+        Front: `core/data/expenses.service.ts → list()`'
+      parameters: &id003
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-10-01'
+        description: 'Davr boshi (kun, kiritilgan holda): date ≥ from 00:00:00'
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-10-31'
+        description: 'Davr oxiri (kun, kiritilgan holda): date ≤ to 23:59:59'
+      - name: who
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Xodimning F.I.Sh. (aniq moslik)
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Expense'
+        '401': &id001
+          $ref: openapi.yaml#/components/responses/Unauthorized
+        '403': &id002
+          $ref: openapi.yaml#/components/responses/Forbidden
+    post:
+      tags:
+      - expenses
+      summary: 'Xarajat qo‘shish (O‘ZGARDI: date — sana va vaqt)'
+      operationId: postExpenses
+      description: 'Kirish: expenses = 2.
+
+
+        - date — front yuboradi (xodim formada sana va vaqtni tanlaydi, standart — hozir).
+
+        - Jurnal: expense { reason, sum: «3 200 000» } (avvalgidek).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '422':
+          description: validation.failed — reason yo‘q, sum ≤ 0, date yo‘q yoki formati noto‘g‘ri
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /expenses/{id}:
+    put:
+      tags:
+      - expenses
+      summary: 'Xarajatni o‘zgartirish (O‘ZGARDI: date — sana va vaqt)'
+      operationId: putExpensesId
+      description: 'Kirish: expenses = 2.'
+      parameters: &id004
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /extra-services:
+    get:
+      tags:
+      - services
+      summary: Qo‘shimcha xizmatlar ro‘yxati
+      operationId: getServices
+      description: 'Kirish: expenses ≥ 1.
+
+
+        - Yangilari yuqorida (date, keyin id bo‘yicha kamayish).
+
+        - Sahifalashsiz to‘liq massiv: front o‘zi filtrlaydi (summa oralig‘i, davr, xodim).
+
+
+        Front: `core/data/extra-services.service.ts → list()`'
+      parameters: *id003
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExtraService'
+        '401': *id001
+        '403': *id002
+    post:
+      tags:
+      - services
+      summary: 'Qo‘shimcha xizmatlar: qo‘shish'
+      operationId: postServices
+      description: 'Kirish: expenses = 2.
+
+
+        - serviceType majburiy: breakfast | pool_sauna | photo | other.
+
+        - serviceType = other — reason majburiy (trim dan keyin bo‘sh emas), xizmat tavsifi.
+
+        - serviceType ≠ other — reason bo‘sh satr "" sifatida saqlanadi (front nomni o‘zi tarjima qiladi).
+
+        - sum > 0, date — sana va vaqt, who — xodimning F.I.Sh.
+
+        - Harakatlar jurnaliga yozilmaydi; dashbord tushumiga hozircha qo‘shilmaydi.
+
+
+        Front: `core/data/extra-services.service.ts → create()`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraServiceDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraService'
+        '422':
+          description: validation.failed — serviceType yo‘q/noto‘g‘ri; other uchun reason yo‘q; sum ≤ 0; date yo‘q
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /extra-services/{id}:
+    put:
+      tags:
+      - services
+      summary: 'Qo‘shimcha xizmatlar: o‘zgartirish'
+      operationId: putServicesId
+      description: 'Kirish: expenses = 2.
+
+
+        - POST dagi qoidalar bilan bir xil.
+
+
+        Front: `core/data/extra-services.service.ts → update()`'
+      parameters: *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraServiceDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraService'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed — serviceType yo‘q/noto‘g‘ri; other uchun reason yo‘q; sum ≤ 0; date yo‘q
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+    delete:
+      tags:
+      - services
+      summary: 'Qo‘shimcha xizmatlar: o‘chirish'
+      operationId: deleteServicesId
+      description: 'Kirish: expenses = 2.
+
+
+        Front: `core/data/extra-services.service.ts → remove()`'
+      parameters: *id004
+      responses:
+        '204':
+          description: Muvaffaqiyatli
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /debts:
+    get:
+      tags:
+      - debts
+      summary: Qarzlar ro‘yxati
+      operationId: getDebts
+      description: 'Kirish: expenses ≥ 1.
+
+
+        - Yangilari yuqorida (date, keyin id bo‘yicha kamayish).
+
+        - Sahifalashsiz to‘liq massiv: front o‘zi filtrlaydi (summa oralig‘i, davr, xodim).
+
+
+        Front: `core/data/debts.service.ts → list()`'
+      parameters: *id003
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Debt'
+        '401': *id001
+        '403': *id002
+    post:
+      tags:
+      - debts
+      summary: 'Qarzlar: qo‘shish'
+      operationId: postDebts
+      description: 'Kirish: expenses = 2.
+
+
+        - debtor (qarzdorning F.I.Sh.) va reason (sabab) majburiy, trim dan keyin bo‘sh emas.
+
+        - sum > 0, date — sana va vaqt, who — qarzni rasmiylashtirgan xodimning F.I.Sh.
+
+        - Harakatlar jurnaliga yozilmaydi; dashbordga ta’sir qilmaydi.
+
+
+        Front: `core/data/debts.service.ts → create()`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebtDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Debt'
+        '422':
+          description: validation.failed — debtor yoki reason yo‘q; sum ≤ 0; date yo‘q
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /debts/{id}:
+    put:
+      tags:
+      - debts
+      summary: 'Qarzlar: o‘zgartirish'
+      operationId: putDebtsId
+      description: 'Kirish: expenses = 2.
+
+
+        - POST dagi qoidalar bilan bir xil.
+
+
+        Front: `core/data/debts.service.ts → update()`'
+      parameters: *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebtDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Debt'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed — debtor yoki reason yo‘q; sum ≤ 0; date yo‘q
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+    delete:
+      tags:
+      - debts
+      summary: 'Qarzlar: o‘chirish'
+      operationId: deleteDebtsId
+      description: 'Kirish: expenses = 2.
+
+
+        Front: `core/data/debts.service.ts → remove()`'
+      parameters: *id004
+      responses:
+        '204':
+          description: Muvaffaqiyatli
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /staff:
+    get:
+      tags:
+      - expenses
+      summary: 'Xodimlar ro‘yxati (O‘ZGARDI: includeInactive)'
+      operationId: getStaff
+      description: 'Kirish: har qanday kirgan foydalanuvchi.
+
+
+        - Standart — faqat faollar (formalardagi «Kim sarflagan / Kim rasmiylashtirgan» ro‘yxati).
+
+        - YANGI: includeInactive=true — bloklangan va (yumshoq) o‘chirilganlar ham; jadvallardagi «Kim rasmiylashtirgan /
+        Kim qo‘shgan» ustuni filtrining avtoto‘ldirishi uchun (eski yozuvlarda ularning F.I.Sh. bor).
+
+        - GET /users faqat admin uchun — shuning uchun filtr /staff dan foydalanadi.
+
+        - F.I.Sh. bo‘yicha alifbo tartibida.'
+      parameters:
+      - name: includeInactive
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffShort'
+        '401': *id001
+        '403': *id002
+  /book:
+    post:
+      tags:
+      - book
+      summary: 'Ro‘yxatdan o‘tkazib joylashtirish (O‘ZGARDI: fiskal chek saqlanadi)'
+      operationId: postBook
+      description: 'Kirish: registration ≥ 2. Avvalgi barcha qoidalar kuchda (asosiy hujjat).
+
+
+        - O‘ZGARDI: fiscalReceipt endi ishlatiladi — «Fiskal chekni saqlash» belgisi.
+
+        - fiscalReceipt = true bo‘lgan mehmon uchun front avval POST /fiscal/receipts { room, amount, docs: [doc] } chaqiradi,
+        raqamni oladi, chek blankasini (FiscalReceiptData) yig‘adi va registrations[i].receipt da yuboradi.
+
+        - Backend receipt ni o‘zgartirmasdan saqlaydi (jsonb) va BookEntry.receipt da qaytaradi; fiscalReceipt = false — receipt
+        null.
+
+        - receipt.number POST /fiscal/receipts bergan raqamlardan biri bo‘lishi kerak (aks holda validation.failed).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookCreateRequest'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookEntry'
+        '422':
+          description: Asosiy hujjatdagidek + validation.failed — receipt.number noma’lum
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /book/{id}:
+    put:
+      tags:
+      - book
+      summary: 'Mehmon ma’lumotlarini o‘zgartirish (O‘ZGARDI: chek)'
+      operationId: putBookId
+      description: 'Kirish: registration ≥ 2.
+
+
+        - O‘ZGARDI: tana — BookRegistration (GuestRegistration + receipt).
+
+        - Mehmonda chek allaqachon bo‘lsa — u o‘zgarmaydi va o‘chirilmaydi (receipt e’tiborsiz qoldiriladi).
+
+        - Chek yo‘q, fiscalReceipt = true va receipt yuborilgan — saqlanadi (o‘zgartirishda belgi qo‘yilgan holat).'
+      parameters: *id004
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookRegistration'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEntry'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /rooms/{number}/checkout:
+    post:
+      tags:
+      - rooms
+      summary: 'Chiqarish (O‘ZGARDI: chek blankasi va vaqt arxivga)'
+      operationId: postRoomsNumberCheckout
+      description: 'Kirish: registration ≥ 2. Avvalgi qoidalar kuchda.
+
+
+        - O‘ZGARDI: arxivdagi checkin — kitobdagi kelish sanasi va vaqti (GuestRegistration.checkin, kesilmaydi), checkout
+        — chiqarish momenti (server vaqti, soniyalar bilan).
+
+        - YANGI: receiptData — chiqarishda yaratilgan chek blankasi. Arxivda: birinchi ketuvchiga receiptData (yuborilgan
+        bo‘lsa), aks holda uning joylashishdagi cheki (BookEntry.receipt); qolgan ketuvchilarga — har birining joylashishdagi
+        cheki yoki null.'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Room
+        '401': *id001
+        '403': *id002
+  /guests/archive:
+    get:
+      tags:
+      - guests
+      summary: 'Ketgan mehmonlar arxivi (O‘ZGARDI: vaqt va chek)'
+      operationId: getGuestsArchive
+      description: 'Kirish: archive ≥ 1.
+
+
+        - O‘ZGARDI: checkin/checkout — sana va vaqt; receipt — saqlangan chek blankasi («Fiskal chek» tugmasi uni ko‘rsatadi
+        va chop etadi).
+
+        - Ketish vaqti bo‘yicha, yangilari yuqorida.'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArchivedGuest'
+        '401': *id001
+        '403': *id002
+  /users/{id}/reset-password:
+    post:
+      tags:
+      - users
+      summary: 'Parolni tiklash (O‘ZGARDI: javob — vaqtinchalik parol)'
+      operationId: postUsersIdResetPassword
+      description: 'Kirish: admin.
+
+
+        - O‘ZGARDI: SMS ulanmaguncha — 200 { temporaryPassword } (ishlayotgan server shunday qiladi, front endi buni qo‘llab-quvvatlaydi:
+        parolni oynada ko‘rsatadi).
+
+        - SMS ulangandan keyin — 204, tanasiz (front «Vaqtinchalik parol SMS orqali yuborildi» deb yozadi).
+
+        - Har ikkala holatda: mustChangePassword = true, xodimning eski tokenlarini bekor qilish tavsiya etiladi.
+
+        - Parol logga yozilmaydi va qayta olinmaydi (faqat qayta tiklash).
+
+
+        Front: `users.service.ts → resetPassword()`, `users.ts → resetPassword()`'
+      parameters: *id004
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemporaryPassword'
+        '204':
+          description: SMS orqali yuborildi (kelajakda)
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /settings/hotel:
+    get:
+      tags:
+      - settings
+      summary: 'Mehmonxona ma’lumotlari (O‘ZGARDI: city)'
+      operationId: getSettingsHotel
+      description: 'Kirish: har qanday kirgan foydalanuvchi.
+
+
+        - O‘ZGARDI: javobda city.'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelSettings'
+        '401': *id001
+        '403': *id002
+    put:
+      tags:
+      - settings
+      summary: 'Mehmonxona ma’lumotlarini saqlash (O‘ZGARDI: city)'
+      operationId: putSettingsHotel
+      description: 'Kirish: admin.
+
+
+        - O‘ZGARDI: city saqlanadi (bo‘sh satr mumkin). Saqlangandan keyin GET /auth/me dagi hotelCity va hotelName yangi
+        qiymatlarni qaytaradi.
+
+
+        Front: «Sozlamalar → Mehmonxona» formasida yangi «Shahar» maydoni.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HotelSettings'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelSettings'
+        '422':
+          description: settings.innInvalid — STIR bo‘sh emas va 9 raqam emas
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': *id001
+        '403': *id002
+  /audit-log:
+    get:
+      tags:
+      - settings
+      summary: 'Harakatlar jurnali (O‘ZGARDI: front parametrsiz chaqiradi)'
+      operationId: getAuditLog
+      description: 'Kirish: admin.
+
+
+        - O‘ZGARDI: «Harakatlar jurnali» endi boshqa jadvallar kabi jadval (Xodim · Harakat · Sana va vaqt) — filtrlar ustunlarda,
+        frontning o‘zida. Front GET /audit-log ni PARAMETRSIZ chaqiradi va barcha yozuvlarni kutadi.
+
+        - from/to/who parametrlari ixtiyoriy bo‘lib qoladi (keyinchalik server sahifalashi uchun).
+
+        - Tartib: at bo‘yicha kamayish. at — soniyalar bilan.
+
+        - GET /audit-log/authors front tomonidan endi ishlatilmaydi (xodim filtri GET /staff?includeInactive=true dan oladi)
+        — endpointni qoldirish mumkin.
+
+        - Yozuvlar ko‘payib ketsa (minglab) — server sahifalashini front bilan kelishish.'
+      parameters: *id003
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionLogEntry'
+        '401': *id001
+        '403': *id002
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ServiceType:
+      type: string
+      enum:
+      - breakfast
+      - pool_sauna
+      - photo
+      - other
+      description: 'YANGI. Qo‘shimcha xizmat turi: nonushta, basseyn va sauna, fotosessiya, boshqa (matni reason da). Nomlarini
+        front tarjima qiladi.'
+    Expense:
+      description: 'Xarajat. O‘ZGARDI: date — sana va vaqt.'
+      type: object
+      properties:
+        id:
+          type: integer
+        reason:
+          type: string
+        sum:
+          type: integer
+          description: '> 0, so‘m'
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'O‘ZGARDI (avval format: date). Xarajat sanasi va vaqti, soniyalar bilan qaytariladi'
+        who:
+          type: string
+          description: Sarflagan xodimning F.I.Sh.
+      required:
+      - id
+      - reason
+      - sum
+      - date
+      - who
+    ExpenseDraft:
+      description: 'Xarajatni yaratish/o‘zgartirish. O‘ZGARDI: date — sana va vaqt.'
+      type: object
+      properties:
+        reason:
+          type: string
+        sum:
+          type: integer
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: Front yuboradi, odatda soniyalar bilan
+        who:
+          type: string
+          description: GET /staff dagi F.I.Sh.
+      required:
+      - reason
+      - sum
+      - date
+      - who
+    ExtraService:
+      description: YANGI. Qo‘shimcha xizmat (mehmon yashashdan tashqari to‘lagan xizmat).
+      type: object
+      properties:
+        id:
+          type: integer
+        serviceType:
+          $ref: '#/components/schemas/ServiceType'
+        reason:
+          type: string
+          description: serviceType = other — xizmat tavsifi; aks holda ""
+        sum:
+          type: integer
+          description: '> 0, so‘m'
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: Sana va vaqt
+        who:
+          type: string
+          description: Rasmiylashtirgan xodimning F.I.Sh.
+      required:
+      - id
+      - serviceType
+      - reason
+      - sum
+      - date
+      - who
+      example:
+        id: 4
+        serviceType: other
+        reason: Aeroportdan transfer
+        sum: 350000
+        date: '2026-10-21T13:08:56'
+        who: Sherzod Nazarov
+    ExtraServiceDraft:
+      description: YANGI. Qo‘shimcha xizmatni yaratish/o‘zgartirish.
+      type: object
+      properties:
+        serviceType:
+          $ref: '#/components/schemas/ServiceType'
+        reason:
+          type: string
+          description: other uchun majburiy
+        sum:
+          type: integer
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: Sana va vaqt
+        who:
+          type: string
+      required:
+      - serviceType
+      - reason
+      - sum
+      - date
+      - who
+    Debt:
+      description: YANGI. Qarz (mehmon yoki tashkilot to‘lamagan summa).
+      type: object
+      properties:
+        id:
+          type: integer
+        debtor:
+          type: string
+          description: Qarzdorning F.I.Sh. yoki tashkilot nomi
+        reason:
+          type: string
+          description: Sabab (ko‘p qatorli matn)
+        sum:
+          type: integer
+          description: '> 0, so‘m'
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: Sana va vaqt
+        who:
+          type: string
+          description: Rasmiylashtirgan xodimning F.I.Sh.
+      required:
+      - id
+      - debtor
+      - reason
+      - sum
+      - date
+      - who
+      example:
+        id: 1
+        debtor: Rahimov Baxtiyor Alisherovich
+        reason: 2 kecha uchun to‘lamagan, №108
+        sum: 900000
+        date: '2026-10-24T14:17:29'
+        who: Dilnoza Karimova
+    DebtDraft:
+      description: YANGI. Qarzni yaratish/o‘zgartirish.
+      type: object
+      properties:
+        debtor:
+          type: string
+        reason:
+          type: string
+        sum:
+          type: integer
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: Sana va vaqt
+        who:
+          type: string
+      required:
+      - debtor
+      - reason
+      - sum
+      - date
+      - who
+    StaffShort:
+      description: 'Ochiladigan ro‘yxatlar uchun xodim. O‘ZGARDI: active qo‘shildi.'
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          $ref: openapi.yaml#/components/schemas/RoleCode
+        active:
+          type: boolean
+          description: YANGI. false — bloklangan/o‘chirilgan (faqat includeInactive=true da keladi)
+      required:
+      - id
+      - name
+      - role
+      - active
+    ReceiptItem:
+      description: YANGI. Chek blankasidagi «Xizmatlar» jadvali qatori (tayyor matnlar).
+      type: object
+      properties:
+        name:
+          type: string
+          example: Проживание · Стандарт
+        qty:
+          type: string
+          example: '3'
+        price:
+          type: string
+          example: 600 000
+        sum:
+          type: string
+          example: 1 800 000
+      required:
+      - name
+      - qty
+      - price
+      - sum
+    FiscalReceiptData:
+      description: YANGI. Chek (hisob) blankasi — front Word shablonga (public/templates/fiscal-receipt.docx) qo‘yadigan tayyor
+        matnlar. Backend uni JSON ko‘rinishida O‘ZGARTIRMASDAN saqlaydi va qaytaradi; ichidagi qiymatlarni hisoblamaydi va
+        formatlamaydi.
+      type: object
+      properties:
+        number:
+          type: string
+          description: POST /fiscal/receipts bergan raqam, «001041»
+        date:
+          type: string
+          example: 26.10.2026
+          description: Chek sanasi, DD.MM.YYYY
+        guests:
+          type: string
+          description: «Familiya Ism» yoki «Familiya Ism (+2)»
+        company:
+          type: string
+          description: Hozir chiziqchalar (qo‘lda to‘ldirish uchun)
+        room:
+          type: string
+        checkin:
+          type: string
+          example: 23.10.2026
+        checkout:
+          type: string
+          example: 26.10.2026
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiptItem'
+        amount:
+          type: string
+          example: 1 800 000
+        amountWords:
+          type: string
+          description: Summa so‘z bilan (rus tilida)
+        cashier:
+          type: string
+          description: Kassir — xodimning F.I.Sh.
+      required:
+      - number
+      - date
+      - guests
+      - company
+      - room
+      - checkin
+      - checkout
+      - items
+      - amount
+      - amountWords
+      - cashier
+    BookRegistration:
+      description: YANGI. GuestRegistration + joylashishdagi chek (POST /book va PUT /book/{id} tanasida).
+      allOf:
+      - $ref: openapi.yaml#/components/schemas/GuestRegistration
+      - type: object
+        properties:
+          receipt:
+            anyOf:
+            - $ref: '#/components/schemas/FiscalReceiptData'
+            - type: 'null'
+            description: fiscalReceipt = true bo‘lsa — chek blankasi, aks holda null yoki yo‘q
+    BookCreateRequest:
+      description: 'O‘ZGARDI: registrations elementlari — BookRegistration.'
+      type: object
+      properties:
+        registrations:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookRegistration'
+          description: 1 dan 10 tagacha mehmon; atomar saqlanadi
+        confirmBlacklisted:
+          type: boolean
+      required:
+      - registrations
+    BookEntry:
+      description: '«Mehmonlar kitobi» yozuvi. O‘ZGARDI: receipt qo‘shildi.'
+      type: object
+      properties:
+        id:
+          type: integer
+        reg:
+          $ref: openapi.yaml#/components/schemas/GuestRegistration
+        receipt:
+          anyOf:
+          - $ref: '#/components/schemas/FiscalReceiptData'
+          - type: 'null'
+          description: YANGI. Joylashishda saqlangan chek; yo‘q — null
+      required:
+      - id
+      - reg
+      - receipt
+    CheckoutRequest:
+      description: 'Chiqarish. O‘ZGARDI: receiptData qo‘shildi.'
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            type: string
+        amount:
+          type: integer
+        receipt:
+          type:
+          - string
+          - 'null'
+          description: Chek raqami yoki null (avvalgidek)
+        receiptData:
+          anyOf:
+          - $ref: '#/components/schemas/FiscalReceiptData'
+          - type: 'null'
+          description: YANGI, ixtiyoriy. Chiqarishdagi chek blankasi (receipt null emas bo‘lsa). Arxivda birinchi ketuvchiga
+            saqlanadi
+        blacklistReason:
+          type:
+          - string
+          - 'null'
+      required:
+      - docs
+      - amount
+      - receipt
+      - blacklistReason
+    ArchivedGuest:
+      description: 'Arxivdagi mehmon. O‘ZGARDI: checkin/checkout — sana va vaqt; receipt qo‘shildi.'
+      type: object
+      properties:
+        id:
+          type: integer
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+        doc:
+          type: string
+        country:
+          type: string
+        room:
+          type: string
+        checkin:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'O‘ZGARDI (avval format: date). Kelish sanasi va vaqti — kitobdagi GuestRegistration.checkin'
+        checkout:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'O‘ZGARDI (avval format: date). Haqiqiy ketish momenti — chiqarish vaqti (server), soniyalar bilan'
+        sum:
+          type: integer
+        birthDate:
+          type: string
+          description: YYYY-MM-DD yoki ""
+        sex:
+          $ref: openapi.yaml#/components/schemas/Sex
+        phone:
+          type: string
+        receipt:
+          anyOf:
+          - $ref: '#/components/schemas/FiscalReceiptData'
+          - type: 'null'
+          description: YANGI. Saqlangan chek blankasi yoki null
+      required:
+      - id
+      - lastName
+      - firstName
+      - middleName
+      - doc
+      - country
+      - room
+      - checkin
+      - checkout
+      - sum
+      - birthDate
+      - sex
+      - phone
+      - receipt
+    RoomGuest:
+      description: 'Xonadagi yashovchi (xona kartochkasi uchun qisqa ma’lumot). O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        name:
+          type: string
+          description: «Familiya Ism»
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2
+        doc:
+          type: string
+          description: Hujjat seriyasi va raqami
+        phone:
+          type: string
+          description: Bo‘sh satr bo‘lishi mumkin
+        checkin:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Mehmonxonaning mahalliy vaqti (Asia/Tashkent), mintaqasiz va soniyasiz O‘ZGARDI: soniyalar ruxsat
+            etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt — doim soniyalar bilan.'
+        checkout:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Mehmonxonaning mahalliy vaqti (Asia/Tashkent), mintaqasiz va soniyasiz O‘ZGARDI: soniyalar ruxsat
+            etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt — doim soniyalar bilan.'
+        sum:
+          type: integer
+          description: Shu mehmon ro‘yxatidagi summa, so‘m
+        pay:
+          allOf:
+          - $ref: openapi.yaml#/components/schemas/PaymentStatus
+          description: unpaid → wait, aks holda paid
+      required:
+      - name
+      - country
+      - doc
+      - phone
+      - checkin
+      - checkout
+      - sum
+      - pay
+    ExtendRequest:
+      description: 'Yashashni uzaytirish. O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        checkout:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Xonadagi barcha mehmonlar uchun yangi ketish sanasi va vaqti O‘ZGARDI: soniyalar ruxsat etiladi (YYYY-MM-DDTHH:mm:ss);
+            server qo‘yadigan vaqt — doim soniyalar bilan.'
+      required:
+      - checkout
+    BlacklistEntry:
+      description: 'Qora ro‘yxatdagi mehmon. Tekshiruv — hujjat bo‘yicha. O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        id:
+          type: integer
+        doc:
+          type: string
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+        country:
+          type: string
+        reason:
+          type: string
+          description: Sabab, majburiy
+        addedAt:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Server qo‘yadi O‘ZGARDI: soniyalar ruxsat etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt —
+            doim soniyalar bilan.'
+        addedBy:
+          type: string
+          description: Xodimning F.I.Sh., server qo‘yadi
+      required:
+      - id
+      - doc
+      - lastName
+      - firstName
+      - middleName
+      - country
+      - reason
+      - addedAt
+      - addedBy
+    Receipt:
+      description: 'Fiskal chek (hisob raqami). O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        number:
+          type: string
+          description: 'Oldida nollar bilan 6 raqam, uzluksiz raqamlash: «001041»'
+        room:
+          type: string
+        amount:
+          type: integer
+        createdAt:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Mehmonxonaning mahalliy vaqti (Asia/Tashkent), mintaqasiz va soniyasiz O‘ZGARDI: soniyalar ruxsat
+            etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt — doim soniyalar bilan.'
+      required:
+      - number
+      - room
+      - amount
+      - createdAt
+    StaffUser:
+      description: 'Xodim (tizim foydalanuvchisi). O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        login:
+          type: string
+        role:
+          $ref: openapi.yaml#/components/schemas/RoleCode
+        phone:
+          type: string
+        active:
+          type: boolean
+          description: false — bloklangan, kira olmaydi
+        lastLogin:
+          type:
+          - string
+          - 'null'
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'null — hali kirmagan O‘ZGARDI: soniyalar ruxsat etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt
+            — doim soniyalar bilan.'
+        online:
+          type: boolean
+          description: Oxirgi 5 daqiqada faol bo‘lgan
+      required:
+      - id
+      - name
+      - login
+      - role
+      - phone
+      - active
+      - lastLogin
+      - online
+    ActionLogEntry:
+      description: 'Harakatlar jurnalidagi hodisa. O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Mehmonxonaning mahalliy vaqti (Asia/Tashkent), mintaqasiz va soniyasiz O‘ZGARDI: soniyalar ruxsat
+            etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt — doim soniyalar bilan.'
+        who:
+          type: string
+          description: Xodimning F.I.Sh.
+        action:
+          $ref: openapi.yaml#/components/schemas/LogAction
+        params:
+          type: object
+          additionalProperties:
+            type: string
+          description: Matn uchun parametrlar (hodisalar jadvaliga qarang)
+      required:
+      - id
+      - at
+      - who
+      - action
+      - params
+    GuestComment:
+      description: 'QR-kod orqali mehmon izohi. O‘ZGARDI (v1.1): sana-vaqt soniyalar bilan.'
+      type: object
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-10-26T14:05:09'
+          description: 'Mehmonxonaning mahalliy vaqti (Asia/Tashkent), mintaqasiz va soniyasiz O‘ZGARDI: soniyalar ruxsat
+            etiladi (YYYY-MM-DDTHH:mm:ss); server qo‘yadigan vaqt — doim soniyalar bilan.'
+        room:
+          type: string
+        guest:
+          type: string
+          description: Ism; bo‘sh — anonim
+        rating:
+          type: integer
+          description: 1–5
+        text:
+          type: string
+          description: ≤ 500 belgi
+        status:
+          $ref: openapi.yaml#/components/schemas/CommentStatus
+      required:
+      - id
+      - at
+      - room
+      - guest
+      - rating
+      - text
+      - status
+    HotelSettings:
+      description: 'Mehmonxona sozlamalari. O‘ZGARDI: city qo‘shildi.'
+      type: object
+      properties:
+        name:
+          type: string
+          description: Nomi
+        legalName:
+          type: string
+          description: Yuridik shaxs
+        inn:
+          type: string
+          description: 'STIR (INN): 9 raqam yoki bo‘sh'
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+          example: Samarqand
+          description: YANGI. Mehmonxona shahri. CurrentUser.hotelCity shu maydondan olinadi (front yuqori chap burchakda
+            «Nom, Shahar» ko‘rsatadi). Ishlayotgan serverda allaqachon bor (HotelSettingsDto.city) — endi hujjatda ham.
+        checkinTime:
+          type: string
+          description: «HH:mm», hisob bo‘yicha kelish vaqti
+        checkoutTime:
+          type: string
+          description: «HH:mm», hisob bo‘yicha ketish vaqti
+        defaultLang:
+          $ref: openapi.yaml#/components/schemas/Lang
+        currency:
+          type: string
+          description: Doim «UZS»
+      required:
+      - name
+      - legalName
+      - inn
+      - phone
+      - address
+      - checkinTime
+      - checkoutTime
+      - defaultLang
+      - currency
+      - city
+    TemporaryPassword:
+      description: YANGI. POST /users/{id}/reset-password javobi (SMS hali yo‘q).
+      type: object
+      properties:
+        temporaryPassword:
+          type: string
+          example: DmBRKXgC
+          description: Vaqtinchalik parol, 8+ belgi. Front uni administratorga BIR MARTA oynada ko‘rsatadi (nusxalash tugmasi
+            bilan)
+      required:
+      - temporaryPassword

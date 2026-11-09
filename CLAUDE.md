@@ -1,4 +1,44 @@
+# HotelOS (e-hotel)
+
+Веб-приложение для управления отелями и хостелами на рынке Узбекистана / Центральной Азии.
+
+## Модули
+- Аутентификация и роли (RBAC): владелец, администратор, ресепшн, горничная
+- Номерной фонд: номера, категории, статусы (свободен / занят / уборка / ремонт)
+- Бронирования и шахматка (календарь занятости)
+- Гости: карточка гостя, регистрация гостей по требованиям законодательства РУз
+- Оплаты и фискализация (онлайн-ККМ)
+- Дашборды: выручка, загрузка, ADR, RevPAR
+
+## Стек
+- Angular 22, standalone-компоненты, signals, новый control flow (@if, @for)
+- Стили: SCSS + Tailwind CSS
+- UI: PrimeNG (тема через дизайн-токены, интеграция с Tailwind через tailwindcss-primeui)
+- Таблицы: AG Grid
+- Графики: ApexCharts (ng-apexcharts)
+- i18n: Transloco — языки ru, uz-Latn, uz-Cyrl
+- Backend: REST API `/api/v1` (Spring, Swagger: https://3-26-35-169.sslip.io/swagger-ui/index.html); в dev `/api/v1` проксируется туда (`proxy.conf.json`)
+
+## Правила работы
+- Отвечай на русском
+- Минимальные изменения: не переписывай существующую логику без запроса
+- Выдавай полные готовые файлы
+- Большие задачи делай по одному шагу и жди подтверждения
+- Все тексты в UI — через Transloco, без хардкода
+
+## Структура (подключено к API, 08.11.2026)
+- `src/app/core` — модели (`models`), сервисы данных (`data/*.service.ts`, HttpClient → `API_URL` из `api/api.ts`), auth (JWT: `auth.service.ts` + `api/api.interceptors.ts` — токен, обновление на 401, ошибки → `ApiError` с кодом сервера для `errors.<code>`), i18n, тема PrimeNG (`theme/hotelos-preset.ts`)
+- Всё подключено к API, включая дополнение v1.1 (`docs/`, 09.11.2026): «Доп. сервисы» (`/extra-services`), «Долги» (`/debts`), дата-время с секундами у расходов, `/staff?includeInactive=true` (формы — `StaffService.names()`, только активные; фильтры — `allNames()`, все). `mocks/mock-data.ts` больше не используется сервисами, кроме справочника `MOCK_COUNTRIES`
+- `src/app/shared` — иконки, бейджи статусов, таблица на AG Grid (`grid/data-grid.ts`), попап результата, шторка, форматирование
+- `src/app/features/*` — экраны; мобильная версия (< 768px) в тех же компонентах через `BreakpointService.isMobile()`
+- Словари: `public/i18n/{ru,uz-Latn,uz-Cyrl}.json`
+- «Сегодня» — токен `APP_TODAY` (дата на компьютере)
+- Вход — реальные учётные записи сервера (POST /auth/login); после сброса пароля — окно обязательной смены (`shared/ui/change-password`)
+- Ключ лицензии PrimeUI — `src/app/core/theme/primeui-license.ts`
+- Комментарии гостей и QR-коды — тоже REST API (`/comments`, `/qr`). Локальный `server/hotel-api.mjs` (`npm run api`) нужен только для `/api/lan` — Wi-Fi адресов ноутбука в QR-ссылке, когда сайт открыт как localhost (`npm run start:lan`). Страница гостя по QR — публичный маршрут `/c/:room`
+
 You are an expert in TypeScript, Angular, and scalable web application development. You write functional, maintainable, performant, and accessible code following Angular and TypeScript best practices.
+
 
 ## TypeScript Best Practices
 

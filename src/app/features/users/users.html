@@ -1,0 +1,375 @@
+<div class="flex flex-col gap-4 px-6 pt-5 pb-8 max-md:px-4 max-md:pt-4">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <h1 class="m-0 text-2xl font-bold tracking-[-0.01em] max-md:text-xl">
+          {{ 'users.title' | transloco }}
+        </h1>
+        <span
+          class="rounded-full bg-[#FDEBD3] px-2.5 py-[3px] text-xs font-semibold text-[#7A3A0A]"
+          >{{ 'users.adminOnly' | transloco }}</span
+        >
+      </div>
+      <p class="mt-1 mb-0 text-[13px] text-muted">{{ 'users.subtitle' | transloco }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        aria-haspopup="dialog"
+        (click)="rolesOpen.set(true)"
+      >
+        <app-icon name="shield" />
+        <span pButtonLabel>{{ 'users.rolesButton' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="danger"
+        [outlined]="true"
+        [disabled]="!selected()"
+        (click)="askDelete()"
+      >
+        <app-icon name="trash" />
+        <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="!selected()"
+        (click)="toggleBlock()"
+      >
+        <app-icon name="lock" />
+        <span pButtonLabel>{{
+          (selected() && !selected()!.active ? 'users.unblock' : 'users.block') | transloco
+        }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="!selected()"
+        (click)="resetPassword()"
+      >
+        <app-icon name="key" />
+        <span pButtonLabel>{{ 'users.resetPassword' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="!selected()"
+        (click)="openEdit()"
+      >
+        <app-icon name="edit" />
+        <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+      </button>
+      <button pButton type="button" (click)="openAdd()">
+        <app-icon name="plus" />
+        <span pButtonLabel>{{ 'common.add' | transloco }}</span>
+      </button>
+    </div>
+  </div>
+
+  <section class="overflow-hidden rounded-xl border border-line bg-white">
+    <app-data-grid
+      [rows]="users()"
+      [columns]="columns()"
+      [loading]="loading()"
+      [selectable]="true"
+      [getRowId]="rowId"
+      emptyText="users.empty"
+      noMatchText="users.noMatches"
+      [minWidth]="960"
+      (selection)="select($event)"
+    />
+  </section>
+
+</div>
+
+<p-dialog
+  [(visible)]="formOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="(editId() === null ? 'users.form.addTitle' : 'users.form.editTitle') | transloco"
+  [style]="{ width: '560px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  <form
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    id="user-form"
+    class="grid grid-cols-2 gap-4 max-sm:grid-cols-1"
+    novalidate
+  >
+    <div class="field col-span-full">
+      <label for="u-name" class="field-label"
+        >{{ 'users.form.name' | transloco }} <span class="req">*</span></label
+      >
+      <input
+        id="u-name"
+        pInputText
+        formControlName="name"
+        autocomplete="off"
+        [placeholder]="'users.form.namePlaceholder' | transloco"
+        [invalid]="invalid('name')"
+        [attr.aria-invalid]="invalid('name')"
+      />
+    </div>
+    <div class="field">
+      <label for="u-login" class="field-label"
+        >{{ 'users.form.login' | transloco }} <span class="req">*</span></label
+      >
+      <input
+        id="u-login"
+        pInputText
+        formControlName="login"
+        autocomplete="off"
+        placeholder="reception2"
+        [invalid]="invalid('login')"
+        [attr.aria-invalid]="invalid('login')"
+        aria-describedby="u-login-hint"
+      />
+      <span id="u-login-hint" class="hint">{{ 'users.form.loginHint' | transloco }}</span>
+    </div>
+    <div class="field">
+      <label for="u-phone" class="field-label">{{ 'users.form.phone' | transloco }}</label>
+      <input
+        id="u-phone"
+        pInputText
+        type="tel"
+        formControlName="phone"
+        placeholder="+998 __ ___ __ __"
+      />
+    </div>
+    <div class="field">
+      <label for="u-role" class="field-label">{{ 'users.form.role' | transloco }}</label>
+      <p-select
+        inputId="u-role"
+        formControlName="role"
+        [options]="roles"
+        [fluid]="true"
+        appendTo="body"
+      >
+        <ng-template #selectedItem let-r>{{ 'roles.' + r | transloco }}</ng-template>
+        <ng-template #item let-r>{{ 'roles.' + r | transloco }}</ng-template>
+      </p-select>
+    </div>
+    <div class="field">
+      <span class="field-label">{{ 'users.form.status' | transloco }}</span>
+      <label
+        class="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-ink-2"
+        for="u-active"
+      >
+        <p-checkbox inputId="u-active" formControlName="active" [binary]="true" />
+        {{ 'users.form.activeLabel' | transloco }}
+      </label>
+    </div>
+    @if (editId() === null) {
+      <div class="field col-span-full">
+        <label for="u-pass" class="field-label"
+          >{{ 'users.form.password' | transloco }} <span class="req">*</span></label
+        >
+        <div class="flex gap-2">
+          <input
+            id="u-pass"
+            pInputText
+            formControlName="password"
+            autocomplete="new-password"
+            class="min-w-0 flex-1 font-mono"
+            [invalid]="invalid('password')"
+            [attr.aria-invalid]="invalid('password')"
+            aria-describedby="u-pass-hint"
+          />
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [outlined]="true"
+            (click)="generatePassword()"
+          >
+            <app-icon name="refresh" />
+            <span pButtonLabel>{{ 'users.form.generate' | transloco }}</span>
+          </button>
+        </div>
+        <span id="u-pass-hint" class="hint">{{ 'users.form.passwordHint' | transloco }}</span>
+      </div>
+    }
+  </form>
+  <ng-template #footer>
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      [outlined]="true"
+      (click)="formOpen.set(false)"
+    >
+      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+    </button>
+    <button pButton type="submit" form="user-form" [loading]="saving()">
+      @if (!saving()) {
+        <app-icon name="check" />
+      }
+      <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>
+
+<app-confirm-dialog
+  [(visible)]="confirmOpen"
+  title="users.confirm.title"
+  text="users.confirm.text"
+  [params]="{ name: selected()?.name ?? '' }"
+  [busy]="saving()"
+  (confirm)="doDelete()"
+/>
+
+<!-- Временный пароль после сброса (ответ сервера 200 { temporaryPassword }) -->
+<p-dialog
+  [visible]="!!tempPassword()"
+  (visibleChange)="!$event && closeTempPassword()"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'users.tempPassword.title' | transloco"
+  [style]="{ width: '440px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  @if (tempPassword(); as t) {
+    <div class="flex flex-col gap-4">
+      <p class="m-0 text-sm text-ink-2">
+        {{ 'users.tempPassword.text' | transloco: { name: t.name } }}
+      </p>
+      <div
+        class="flex items-center justify-between gap-3 rounded-[10px] border border-line bg-[#F9FAFB] px-4 py-3"
+      >
+        <span
+          class="font-mono text-xl font-semibold tracking-[0.12em] text-ink select-all"
+          [attr.aria-label]="'users.tempPassword.label' | transloco"
+          >{{ t.password }}</span
+        >
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          (click)="copyTempPassword()"
+        >
+          <app-icon [name]="copied() ? 'check' : 'copy'" />
+          <span pButtonLabel>{{
+            (copied() ? 'users.tempPassword.copied' : 'users.tempPassword.copy') | transloco
+          }}</span>
+        </button>
+      </div>
+      <p class="m-0 text-xs text-muted">{{ 'users.tempPassword.hint' | transloco }}</p>
+    </div>
+  }
+  <ng-template #footer>
+    <button pButton type="button" (click)="closeTempPassword()">
+      <span pButtonLabel>{{ 'common.done' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- Роли и права доступа (только чтение) -->
+<p-dialog
+  [(visible)]="rolesOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [dismissableMask]="true"
+  [header]="'users.rolesTitle' | transloco"
+  [style]="{ width: '920px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  <p class="mt-0 mb-3 text-[13px] text-muted">{{ 'users.rolesSubtitle' | transloco }}</p>
+  <div class="overflow-hidden rounded-xl border border-line">
+  <div class="overflow-x-auto" tabindex="0" [attr.aria-label]="'users.rolesTitle' | transloco">
+    <table class="w-full min-w-[760px] border-collapse text-sm">
+      <thead>
+        <tr class="border-y border-line-2 bg-subtle text-xs font-semibold text-muted">
+          <th scope="col" class="px-5 py-2.5 text-left font-semibold">
+            {{ 'users.section' | transloco }}
+          </th>
+          @for (r of roles; track r) {
+            <th scope="col" class="px-2 py-2.5 text-center font-semibold">
+              {{ 'roles.' + r | transloco }}
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of permissions(); track p.section) {
+          <tr class="row-h border-b border-line-2">
+            <th scope="row" class="px-5 py-3 text-left font-medium">
+              {{ 'users.sections.' + p.section | transloco }}
+            </th>
+            @for (c of p.cells; track c.role) {
+              <td class="px-2 py-2 text-center">
+                <span
+                  class="inline-flex size-7 items-center justify-center rounded-lg text-sm font-bold"
+                  [style.background]="c.bg"
+                  [style.color]="c.fg"
+                  role="img"
+                  [attr.aria-label]="('roles.' + c.role | transloco) + ': ' + (c.key | transloco)"
+                >
+                  <app-icon [name]="c.icon" [size]="16" [stroke]="2.2" />
+                </span>
+              </td>
+            }
+          </tr>
+        } @empty {
+          @for (s of [0, 1, 2, 3, 4]; track s) {
+            <tr class="border-b border-line-2">
+              <td class="px-5 py-3"><div class="sk h-3 w-40"></div></td>
+              @for (r of roles; track r) {
+                <td class="px-2 py-2 text-center">
+                  <div class="sk mx-auto size-7 rounded-lg"></div>
+                </td>
+              }
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+  <div class="flex flex-wrap gap-4 px-5 py-3 text-xs text-muted">
+    <span class="flex items-center gap-1.5"
+      ><span
+        class="inline-flex size-5 items-center justify-center rounded-md bg-[#E7F6EC] text-[#067647]"
+        aria-hidden="true"
+        ><app-icon name="check" [size]="13" [stroke]="2.4" /></span
+      >{{ 'users.access.full' | transloco }}</span
+    >
+    <span class="flex items-center gap-1.5"
+      ><span
+        class="inline-flex size-5 items-center justify-center rounded-md bg-[#DCE7FD] text-[#1E3A8A]"
+        aria-hidden="true"
+        ><app-icon name="eye" [size]="13" [stroke]="2.2" /></span
+      >{{ 'users.access.view' | transloco }}</span
+    >
+    <span class="flex items-center gap-1.5"
+      ><span
+        class="inline-flex size-5 items-center justify-center rounded-md bg-chip text-[#667085]"
+        aria-hidden="true"
+        ><app-icon name="minus" [size]="13" [stroke]="2.4" /></span
+      >{{ 'users.access.none' | transloco }}</span
+    >
+  </div>
+  </div>
+  <ng-template #footer>
+    <button pButton type="button" (click)="rolesOpen.set(false)">
+      <span pButtonLabel>{{ 'common.close' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>

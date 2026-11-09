@@ -1,12 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ResultPopup } from './shared/ui/result-popup/result-popup';
 
 @Component({
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ResultPopup],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
 })
-export class App {
-  protected readonly title = signal('e-hotel');
-}
+export class App {}

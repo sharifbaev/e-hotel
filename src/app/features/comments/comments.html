@@ -1,0 +1,399 @@
+@if (!bp.isMobile()) {
+  <div class="flex flex-col gap-4 px-6 pt-5 pb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="m-0 text-2xl font-bold tracking-[-0.01em]">
+          {{ 'comments.title' | transloco }}
+        </h1>
+        <p class="mt-0.5 mb-0 text-[13px] text-muted">{{ 'comments.subtitle' | transloco }}</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="w-[42px] !px-0"
+          [attr.aria-label]="'common.refresh' | transloco"
+          [disabled]="refreshing()"
+          (click)="reload()"
+        >
+          <app-icon name="refresh" [class.spin]="refreshing()" />
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="newCount() === 0"
+          (click)="readAll()"
+        >
+          <app-icon name="check-all" />
+          <span pButtonLabel>{{ 'comments.readAll' | transloco }}</span>
+        </button>
+      </div>
+    </div>
+
+    @if (offline()) {
+      <ng-container *ngTemplateOutlet="offlineBox" />
+    }
+
+    <div class="grid grid-cols-3 gap-3 max-lg:grid-cols-1">
+      <div class="card-h flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-3.5">
+        <span class="text-[13px] font-medium text-muted">{{
+          'comments.stats.new' | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-7 w-[40%]"></div>
+        } @else {
+          <span
+            class="rise flex items-baseline gap-2 text-2xl font-bold tracking-[-0.02em]"
+            [class.text-[#B54708]]="stats().new > 0"
+            >{{ stats().new }}
+            <span class="text-[13px] font-medium tracking-normal text-muted">{{
+              'comments.stats.newSub' | transloco
+            }}</span></span
+          >
+        }
+      </div>
+      <div class="card-h flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-3.5">
+        <span class="text-[13px] font-medium text-muted">{{
+          'comments.stats.total' | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-7 w-[40%]"></div>
+        } @else {
+          <span class="rise flex items-baseline gap-2 text-2xl font-bold tracking-[-0.02em]"
+            >{{ stats().total }}
+            <span class="text-[13px] font-medium tracking-normal text-muted">{{
+              'comments.stats.totalSub' | transloco
+            }}</span></span
+          >
+        }
+      </div>
+      <div class="card-h flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-3.5">
+        <span class="text-[13px] font-medium text-muted">{{
+          'comments.stats.avg' | transloco
+        }}</span>
+        @if (loading()) {
+          <div class="sk h-7 w-[40%]"></div>
+        } @else {
+          <span class="rise flex items-baseline gap-2 text-2xl font-bold tracking-[-0.02em]"
+            >{{ stats().avg }}
+            <span class="text-[13px] font-medium tracking-normal text-muted">{{
+              'comments.stats.avgSub' | transloco
+            }}</span></span
+          >
+        }
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2.5">
+      <div
+        role="group"
+        [attr.aria-label]="'comments.filterByStatus' | transloco"
+        class="flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-white p-1.5"
+      >
+        @for (t of tabs(); track t.key) {
+          <button
+            type="button"
+            class="chip"
+            [class.chip-on]="tab() === t.key"
+            [attr.aria-pressed]="tab() === t.key"
+            (click)="tab.set(t.key)"
+          >
+            <span class="size-2 rounded-full" [style.background]="t.dot"></span>
+            {{ 'comments.tab.' + t.key | transloco }}
+            <span class="text-xs font-semibold text-muted">{{ t.count }}</span>
+          </button>
+        }
+      </div>
+      <p class="m-0 ml-auto flex items-center gap-2 text-[13px] text-muted">
+        <app-icon name="qr" [size]="16" />
+        {{ 'comments.qrHint' | transloco }}
+        <a routerLink="/rooms" class="font-medium">{{ 'nav.rooms' | transloco }}</a>
+      </p>
+    </div>
+
+    <section class="overflow-hidden rounded-xl border border-line bg-white">
+      <app-data-grid
+        [rows]="rows()"
+        [columns]="columns()"
+        [loading]="loading()"
+        [getRowId]="rowId"
+        [rowClass]="rowClass"
+        [emptyText]="tab() === 'all' ? 'comments.empty' : 'comments.emptyTab'"
+        noMatchText="comments.noMatches"
+        [minWidth]="980"
+        [details]="false"
+        (rowClick)="openComment($event)"
+      />
+    </section>
+  </div>
+
+  <p-dialog
+    [(visible)]="detailOpen"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [style]="{ width: '520px', maxWidth: 'calc(100vw - 32px)' }"
+    styleClass="hs-dialog"
+    [closeAriaLabel]="'common.close' | transloco"
+  >
+    <ng-template #header>
+      @if (open(); as c) {
+        <div class="flex flex-col">
+          <span class="text-lg font-semibold">{{
+            'comments.detailTitle' | transloco: { room: c.room }
+          }}</span>
+          <span class="text-[13px] text-muted">{{
+            c.at | dayMonth: { time: true, year: true }
+          }}</span>
+        </div>
+      }
+    </ng-template>
+    <ng-container *ngTemplateOutlet="detail" />
+    <ng-template #footer>
+      <div class="flex w-full justify-between gap-2.5">
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          [loading]="busy()"
+          (click)="remove()"
+        >
+          @if (!busy()) {
+            <app-icon name="trash" />
+          }
+          <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+        </button>
+        <div class="flex gap-2.5">
+          <button pButton type="button" severity="secondary" [outlined]="true" (click)="markNew()">
+            <span pButtonLabel>{{ 'comments.markNew' | transloco }}</span>
+          </button>
+          <button pButton type="button" (click)="closeDetail()">
+            <span pButtonLabel>{{ 'comments.done' | transloco }}</span>
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </p-dialog>
+} @else {
+  <!-- ===== Мобильная версия ===== -->
+  <header class="flex shrink-0 flex-col gap-2.5 border-b border-line-2 bg-white px-4 pt-2.5 pb-3">
+    <div class="flex items-center gap-2">
+      <a
+        routerLink="/more"
+        class="tap -ml-2 flex size-10 items-center justify-center rounded-[10px] text-ink-2"
+        [attr.aria-label]="'nav.more' | transloco"
+      >
+        <app-icon name="chevron-left" [size]="22" [stroke]="2" />
+      </a>
+      <div class="min-w-0 flex-1">
+        <h1 class="m-0 text-xl font-bold">{{ 'comments.title' | transloco }}</h1>
+        <p class="mt-px mb-0 truncate text-xs text-muted">
+          {{ 'comments.subtitleMobile' | transloco: { avg: stats().avg } }}
+        </p>
+      </div>
+      <button
+        type="button"
+        class="tap flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[10px] border border-line bg-white disabled:cursor-not-allowed"
+        [class.text-ink-2]="newCount() > 0"
+        [class.text-faint]="newCount() === 0"
+        [disabled]="newCount() === 0"
+        [attr.aria-label]="'comments.readAll' | transloco"
+        (click)="readAll()"
+      >
+        <app-icon name="check-all" [size]="20" [stroke]="2" />
+      </button>
+    </div>
+    <div
+      role="group"
+      [attr.aria-label]="'comments.filterByStatus' | transloco"
+      class="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4"
+    >
+      @for (t of tabs(); track t.key) {
+        <button
+          type="button"
+          class="tap flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold"
+          [class]="
+            tab() === t.key ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink-2'
+          "
+          [attr.aria-pressed]="tab() === t.key"
+          (click)="tab.set(t.key)"
+        >
+          <span class="size-[7px] rounded-full" [style.background]="t.dot"></span>
+          {{ 'comments.tab.' + t.key | transloco }}
+          <span class="opacity-80">{{ t.count }}</span>
+        </button>
+      }
+    </div>
+  </header>
+
+  <div class="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-3.5 pb-5">
+    @if (offline()) {
+      <ng-container *ngTemplateOutlet="offlineBox" />
+    } @else if (loading()) {
+      @for (s of [0, 1, 2, 3, 4]; track s) {
+        <div class="flex flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white p-3.5">
+          <div class="flex justify-between">
+            <div class="sk h-[22px] w-[60px]"></div>
+            <div class="sk h-3 w-[70px]"></div>
+          </div>
+          <div class="sk h-3 w-[92%]"></div>
+          <div class="sk h-3 w-[60%]"></div>
+        </div>
+      }
+    } @else if (rows().length === 0) {
+      <div
+        class="rise flex flex-col items-center gap-2 rounded-[14px] border border-dashed border-field bg-white px-5 py-14 text-center"
+      >
+        <app-icon name="message" [size]="36" [stroke]="1.6" class="text-faint" />
+        <span class="text-[15px] font-semibold">{{
+          (tab() === 'all' ? 'comments.empty' : 'comments.emptyTab') | transloco
+        }}</span>
+      </div>
+    } @else {
+      @for (c of rows(); track c.id; let i = $index) {
+        <button
+          type="button"
+          class="tap rise flex w-full cursor-pointer flex-col gap-2 rounded-[14px] border p-3.5 text-left"
+          [class]="c.status === 'new' ? 'border-[#F5DDB8] bg-[#FFFCF5]' : 'border-line-2 bg-white'"
+          [style.animation-delay.ms]="i < 10 ? i * 30 : 300"
+          [attr.aria-label]="'comments.openAria' | transloco: { room: c.room }"
+          (click)="openComment(c)"
+        >
+          <span class="flex w-full items-center gap-2">
+            <span
+              class="inline-flex h-6 items-center rounded-md bg-chip px-2 text-xs font-bold text-ink-2"
+              >№ {{ c.room }}</span
+            >
+            <span class="text-sm tracking-[1px]" aria-hidden="true"
+              ><span class="text-warning">{{ stars(c.rating).on }}</span
+              ><span class="text-field">{{ stars(c.rating).off }}</span></span
+            >
+            <span class="ml-auto flex items-center gap-1.5 text-xs text-muted">
+              @let w = when(c.at);
+              @if (w.key) {
+                {{ w.key | transloco: { time: w.time } }}
+              } @else {
+                {{ c.at | dayMonth }}
+              }
+              @if (c.status === 'new') {
+                <span class="size-2 rounded-full bg-warning" aria-hidden="true"></span>
+              }
+            </span>
+          </span>
+          <span
+            class="line-clamp-2 text-sm leading-snug text-ink"
+            [class.font-semibold]="c.status === 'new'"
+            >{{ c.text }}</span
+          >
+          <span class="text-xs text-muted" [class.italic]="!c.guest">{{
+            c.guest || ('comments.anonymous' | transloco)
+          }}</span>
+        </button>
+      }
+    }
+  </div>
+
+  <app-sheet
+    [(visible)]="detailOpen"
+    [title]="open() ? ('comments.detailTitle' | transloco: { room: open()!.room }) : ''"
+    [subtitle]="open() ? (open()!.at | dayMonth: { time: true, year: true }) : ''"
+  >
+    <div class="pb-1">
+      <ng-container *ngTemplateOutlet="detail" />
+    </div>
+    <div sheetFooter class="flex flex-col gap-2">
+      <div class="grid grid-cols-2 gap-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="h-12"
+          (click)="markNew()"
+        >
+          <span pButtonLabel>{{ 'comments.markNewShort' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          class="h-12"
+          [loading]="busy()"
+          (click)="remove()"
+        >
+          @if (!busy()) {
+            <app-icon name="trash" />
+          }
+          <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+        </button>
+      </div>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [text]="true"
+        class="h-12"
+        (click)="closeDetail()"
+      >
+        <span pButtonLabel>{{ 'common.close' | transloco }}</span>
+      </button>
+    </div>
+  </app-sheet>
+}
+
+<!-- Текст комментария: общий для диалога и шторки -->
+<ng-template #detail>
+  @if (open(); as c) {
+    <div class="flex flex-col gap-4">
+      <div class="flex items-center gap-3">
+        <span
+          class="flex size-11 shrink-0 items-center justify-center rounded-full bg-chip text-sm font-semibold text-ink-2"
+          aria-hidden="true"
+          >{{ guestInitials(c) }}</span
+        >
+        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span class="truncate text-[15px] font-semibold" [class.italic]="!c.guest">{{
+            c.guest || ('comments.anonymous' | transloco)
+          }}</span>
+          <span class="text-[13px] text-muted">{{ 'comments.viaQr' | transloco }}</span>
+        </div>
+        <span class="flex shrink-0 items-center gap-1.5">
+          <span class="text-xl tracking-[1px]" aria-hidden="true"
+            ><span class="text-warning">{{ stars(c.rating).on }}</span
+            ><span class="text-field">{{ stars(c.rating).off }}</span></span
+          >
+          <span class="text-sm font-bold">{{
+            'comments.ratingOf' | transloco: { n: c.rating }
+          }}</span>
+        </span>
+      </div>
+      <blockquote
+        class="m-0 rounded-xl border border-line-2 bg-subtle p-4 text-[15px] leading-relaxed whitespace-pre-line text-ink [overflow-wrap:anywhere]"
+      >
+        {{ c.text }}
+      </blockquote>
+    </div>
+  }
+</ng-template>
+
+<!-- Сервер комментариев не запущен -->
+<ng-template #offlineBox>
+  <div
+    role="alert"
+    class="rise flex flex-wrap items-center gap-3 rounded-xl border border-danger-line bg-danger-soft px-4 py-3.5"
+  >
+    <app-icon name="message" [size]="22" class="text-danger" />
+    <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+      <span class="text-sm font-semibold text-danger">{{
+        'comments.offlineTitle' | transloco
+      }}</span>
+      <span class="text-[13px] text-ink-2">{{ 'comments.offlineText' | transloco }}</span>
+    </div>
+  </div>
+</ng-template>

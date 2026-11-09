@@ -1,1 +1,839 @@
-/* You can add global styles to this file, and also import other style files */
+/* Глобальные стили HotelOS: базовые элементы, анимации и правки PrimeNG под дизайн */
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-app);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input,
+  select,
+  button,
+  textarea {
+    font-family: inherit;
+  }
+
+  a {
+    color: var(--color-accent);
+  }
+
+  a:hover {
+    color: var(--color-accent-dark);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Skeleton при медленном интернете */
+  .sk {
+    background: linear-gradient(90deg, #eef0f3 0%, #f8f9fb 50%, #eef0f3 100%);
+    background-size: 960px 100%;
+    animation: hs-shimmer 1.3s linear infinite;
+    border-radius: 6px;
+  }
+
+  .rise {
+    animation: hs-rise 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .fade {
+    animation: hs-fade 0.2s ease both;
+  }
+
+  .pop {
+    animation: hs-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .slide {
+    animation: hs-slide 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .ring-in {
+    animation: hs-ring 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .draw {
+    stroke-dasharray: 40;
+    animation: hs-draw 0.45s 0.15s ease-out both;
+  }
+
+  .spin {
+    animation: hs-spin 0.8s linear infinite;
+  }
+
+  .bar-grow {
+    transform-origin: bottom;
+    animation: hs-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .prog {
+    transform-origin: left;
+    animation: hs-grow-x 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .card-h {
+    transition:
+      box-shadow 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .card-h:hover {
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.07);
+    transform: translateY(-2px);
+  }
+
+  .row-h {
+    transition: background-color 0.15s;
+  }
+
+  .row-h:hover {
+    background: var(--color-subtle);
+  }
+
+  .tap {
+    transition:
+      transform 0.1s ease,
+      background-color 0.15s;
+  }
+
+  .tap:active {
+    transform: scale(0.97);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Сегментный переключатель (Неделя / Месяц / Период и т.п.) */
+  .seg {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--color-line-2);
+    border-radius: 10px;
+  }
+
+  .seg > button {
+    min-height: 36px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color 0.18s,
+      color 0.18s;
+  }
+
+  .seg > button:hover {
+    color: var(--color-ink);
+  }
+
+  .seg > button.seg-on {
+    background: #fff;
+    color: var(--color-ink);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+  }
+
+  .seg-full {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .seg-full > button {
+    min-height: 38px;
+    padding: 0 6px;
+  }
+
+  /* Дашборд целиком на одном экране (на достаточно больших мониторах) */
+  @media (min-width: 1100px) and (min-height: 760px) {
+    .dash-fit {
+      height: calc(100dvh - 61px);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+  }
+
+  /* Страница ровно в высоту экрана под шапкой; прокрутка — внутри своих блоков */
+  .page-fit {
+    height: calc(100dvh - 61px);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .field-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink-2);
+  }
+
+  .req {
+    color: var(--color-danger);
+  }
+
+  .hint {
+    font-size: 12px;
+    color: var(--color-muted);
+  }
+
+  .filled {
+    animation: hs-flash 1.2s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise,
+    .fade,
+    .pop,
+    .slide,
+    .ring-in,
+    .draw,
+    .bar-grow,
+    .prog,
+    .filled {
+      animation: none;
+    }
+
+    .card-h:hover {
+      transform: none;
+    }
+  }
+}
+
+/* ===== Кнопки PrimeNG: серое неактивное состояние, как в дизайне ===== */
+.p-button:disabled,
+.p-button.p-disabled {
+  opacity: 1;
+  background: #f9fafb !important;
+  border-color: #eaecf0 !important;
+  color: #98a2b3 !important;
+  cursor: not-allowed;
+}
+
+.p-button.p-button-primary:disabled:not(.p-button-outlined) {
+  background: #e4e7ec !important;
+  border-color: #e4e7ec !important;
+}
+
+.p-button {
+  white-space: nowrap;
+}
+
+.p-button .app-icon {
+  flex: none;
+}
+
+.p-button:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* ===== Диалоги ===== */
+.p-dialog-mask {
+  backdrop-filter: none;
+}
+
+.hs-dialog .p-dialog-header {
+  border-bottom: 1px solid var(--color-line-2);
+}
+
+.hs-dialog .p-dialog-footer {
+  border-top: 1px solid var(--color-line-2);
+  padding-top: 16px;
+}
+
+.hs-dialog-nofooter .p-dialog-footer {
+  display: none;
+}
+
+.hs-dialog .p-dialog-content {
+  padding-top: 20px;
+}
+
+/* ===== Нижние шторки (мобильная версия) ===== */
+.hs-sheet.p-drawer-bottom {
+  height: auto !important;
+  max-height: 92dvh;
+  border-radius: 20px 20px 0 0;
+}
+
+.hs-sheet.p-drawer-bottom.hs-sheet-full {
+  height: 100dvh !important;
+  max-height: 100dvh;
+  border-radius: 0;
+}
+
+.hs-sheet .p-drawer-content {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+@keyframes hs-shimmer {
+  0% {
+    background-position: -480px 0;
+  }
+  100% {
+    background-position: 480px 0;
+  }
+}
+
+@keyframes hs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hs-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hs-slide {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hs-ring {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes hs-draw {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes hs-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes hs-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes hs-flash {
+  0% {
+    background-color: #e6f4f2;
+  }
+  100% {
+    background-color: #ffffff;
+  }
+}
+
+/* ===== Шахматка ===== */
+.chess-row {
+  display: grid;
+  grid-template-columns: 168px repeat(14, minmax(64px, 1fr));
+}
+
+.nav-arrow {
+  width: 40px;
+  height: 42px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-ink-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.18s;
+}
+
+.nav-arrow:hover {
+  background: var(--color-chip);
+}
+
+.booking-bar {
+  grid-row: 1;
+  z-index: 1;
+  margin: 7px 3px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  font-family: inherit;
+  transition:
+    filter 0.15s,
+    transform 0.1s;
+}
+
+.booking-bar:hover {
+  filter: brightness(0.96);
+}
+
+.booking-bar:active {
+  transform: translateY(1px);
+}
+
+/* ===== Номера ===== */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #fff;
+  color: var(--color-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+}
+
+.chip:hover {
+  border-color: #98a2b3;
+}
+
+.chip.chip-on {
+  background: var(--color-chip);
+  border-color: #98a2b3;
+}
+
+/* Карточка номера: обёртка с рамкой, внутри — кнопка выбора и иконки «Изменить» / «QR-код» */
+.room-card-wrap {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.room-card-wrap:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
+}
+
+.room-card-wrap .room-card {
+  width: 100%;
+  border: none;
+  background: transparent;
+}
+
+.room-card-wrap .room-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.room-card-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+}
+
+.room-card-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--color-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s,
+    color 0.18s;
+}
+
+.room-card-icon:hover {
+  background: #fff;
+  border-color: #98a2b3 !important;
+  color: var(--color-ink);
+}
+
+.room-card-icon-off {
+  border-style: dashed;
+  color: var(--color-faint);
+}
+
+/* Чекбокс «QR-код для комментариев» в форме номера */
+.qr-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--color-field);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    background-color 0.18s,
+    border-color 0.18s;
+}
+
+.qr-option:hover {
+  border-color: #98a2b3;
+}
+
+.qr-option.qr-option-on {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+
+.qr-option.qr-option-disabled {
+  cursor: not-allowed;
+  background: var(--color-subtle);
+}
+
+/* Новые комментарии в таблице */
+.ag-row.hs-row-new {
+  background: #fffcf5;
+}
+
+/* Звёзды оценки на странице гостя */
+.star-btn {
+  flex: 1;
+  height: 52px;
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--color-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star-btn.star-on {
+  border-color: #f1d7bd;
+  background: #fff7eb;
+  color: var(--color-warning);
+}
+
+.room-card {
+  min-height: 112px;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: inherit;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.room-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 22px rgba(16, 24, 40, 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-card:hover,
+  .room-card-wrap:hover {
+    transform: none;
+  }
+}
+
+/* ===== Формы ===== */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.reg-section {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.reg-legend {
+  padding: 0;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.reg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.reg-grid.reg-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.reg-grid.reg-grid-compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .reg-grid:not(.reg-grid-compact) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.reg-actions {
+  position: sticky;
+  bottom: -20px;
+  z-index: 2;
+  margin: 0 -24px -20px;
+  padding: 16px 24px 20px;
+  background: #fff;
+  border-top: 1px solid var(--color-line-2);
+}
+
+/* Плавающая кнопка (мобильная версия) */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 16px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 118, 110, 0.35);
+}
+
+/* Панель «Есть несохранённые изменения» */
+.unsaved-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 30;
+  width: calc(100% - 32px);
+  max-width: 640px;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 10px 10px 18px;
+  border-radius: 12px;
+  background: var(--color-ink);
+  color: #fff;
+  box-shadow: 0 16px 32px rgba(16, 24, 40, 0.3);
+  animation: hs-rise 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (max-width: 767.98px) {
+  .unsaved-bar {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Вкладки настроек */
+.hs-tabs .p-tabpanels {
+  padding: 16px 0 0;
+  background: transparent;
+}
+
+.hs-tabs .p-tablist,
+.hs-tabs .p-tablist-content,
+.hs-tabs .p-tablist-tab-list {
+  background: transparent;
+}
+
+.hs-tabs .p-tab {
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+/* Страница внутри каркаса растягивается на всю высоту (нужно мобильной прокрутке) */
+main#main > :not(router-outlet) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ===== Строка фильтров таблиц: диапазон суммы, период, сотрудник (shared/grid/grid-filters.ts) ===== */
+.hs-ff {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.hs-ff-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 34px;
+  padding: 0 26px 0 8px;
+  border: 1px solid #d0d5dd;
+  border-radius: 4px;
+  background: #fff;
+  color: #667085;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.hs-ff-trigger:hover,
+.hs-ff-trigger:focus-visible {
+  border-color: var(--color-accent);
+}
+
+.hs-ff-trigger.hs-ff-on {
+  color: var(--color-ink);
+  font-weight: 500;
+  border-color: var(--color-accent);
+}
+
+.hs-ff-clear {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: flex;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #667085;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.hs-ff-clear:hover {
+  color: var(--color-ink);
+  background: #f2f4f7;
+}
+
+.hs-ff-input {
+  width: 100%;
+  height: 36px;
+  font-size: 13px;
+}
+
+/* Календарь и автодополнение в ячейке фильтра — высотой как поля AG Grid */
+.hs-ff .p-inputtext {
+  height: 34px;
+  padding-top: 0;
+  padding-bottom: 0;
+  font-size: 13px;
+  border-radius: 4px;
+}
+
+.hs-ff.p-autocomplete .p-autocomplete-dropdown {
+  width: 30px;
+  height: 34px;
+  border-radius: 0 4px 4px 0;
+}
+
+.hs-ff .p-datepicker-input-icon-container,
+.hs-ff .p-datepicker-clear-icon,
+.hs-ff .p-autocomplete-clear-icon {
+  font-size: 12px;
+}
+
+.ag-floating-filter-body:has(.hs-ff) {
+  width: 100%;
+}

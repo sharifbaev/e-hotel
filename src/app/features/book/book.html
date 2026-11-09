@@ -1,0 +1,292 @@
+@if (!bp.isMobile()) {
+  <div class="flex flex-col gap-4 px-6 pt-5 pb-8">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="m-0 text-2xl font-bold tracking-[-0.01em]">{{ 'book.title' | transloco }}</h1>
+        <p class="mt-0.5 mb-0 text-[13px] text-muted">
+          {{ 'book.subtitle' | transloco }} · {{ 'guestInfo.dblHint' | transloco }}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="openBlacklist()"
+        >
+          <app-icon name="ban" />
+          <span pButtonLabel>{{ 'book.toBlacklist' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="openEdit()"
+        >
+          <app-icon name="edit" />
+          <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+        </button>
+        <button pButton type="button" (click)="openAdd()">
+          <app-icon name="plus" />
+          <span pButtonLabel>{{ 'book.add' | transloco }}</span>
+        </button>
+      </div>
+    </div>
+
+    <section class="overflow-hidden rounded-xl border border-line bg-white">
+      <app-data-grid
+        [rows]="rows()"
+        [columns]="columns()"
+        [loading]="loading()"
+        [selectable]="true"
+        [getRowId]="rowId"
+        emptyText="book.empty"
+        noMatchText="guests.noMatches"
+        [minWidth]="960"
+        (selection)="select($event)"
+        [details]="false"
+        (rowDoubleClick)="openInfo($event)"
+      />
+    </section>
+  </div>
+
+  <p-dialog
+    [visible]="regOpen()"
+    (visibleChange)="!$event && closeReg(false)"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    [header]="'book.checkInTitle' | transloco"
+    [style]="{ width: '960px', maxWidth: 'calc(100vw - 32px)' }"
+    [contentStyle]="{ maxHeight: 'calc(100dvh - 170px)' }"
+    styleClass="hs-dialog"
+    [closeAriaLabel]="'common.close' | transloco"
+  >
+    @if (regOpen()) {
+      <app-registration-tabs
+        [presetRoom]="presetRoom()"
+        (done)="closeReg(true)"
+        (cancel)="closeReg(false)"
+      />
+    }
+  </p-dialog>
+} @else {
+  <!-- ===== Мобильная версия ===== -->
+  <header class="flex shrink-0 flex-col gap-2.5 border-b border-line-2 bg-white px-4 pt-3.5 pb-3">
+    <div>
+      <h1 class="m-0 text-xl font-bold">{{ 'book.title' | transloco }}</h1>
+      <p class="mt-0.5 mb-0 text-xs text-muted">{{ 'book.subtitleMobile' | transloco }}</p>
+    </div>
+    <label
+      class="flex h-11 items-center gap-2 rounded-xl border border-field px-3 text-muted focus-within:border-accent"
+    >
+      <app-icon name="search" />
+      <input
+        type="search"
+        class="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none"
+        [attr.aria-label]="'book.search' | transloco"
+        [placeholder]="'book.search' | transloco"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
+    </label>
+    <div
+      role="group"
+      [attr.aria-label]="'book.filterByPayment' | transloco"
+      class="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4"
+    >
+      @for (c of chips(); track c.key) {
+        <button
+          type="button"
+          class="tap flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[13px] font-semibold"
+          [class]="
+            filter() === c.key ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink-2'
+          "
+          [attr.aria-pressed]="filter() === c.key"
+          (click)="filter.set(c.key)"
+        >
+          <span class="size-[7px] rounded-full" [style.background]="c.dot"></span>
+          {{ (c.key === 'all' ? 'common.all' : 'paymentMethods.' + c.key) | transloco }}
+          <span class="opacity-80">{{ c.count }}</span>
+        </button>
+      }
+    </div>
+  </header>
+
+  <div class="no-scrollbar flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pt-3 pb-24">
+    @if (loading()) {
+      @for (s of [0, 1, 2, 3, 4]; track s) {
+        <div class="flex flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white p-3.5">
+          <div class="flex items-center gap-2.5">
+            <div class="sk size-9 rounded-full"></div>
+            <div class="flex flex-1 flex-col gap-1.5">
+              <div class="sk h-3 w-3/5"></div>
+              <div class="sk h-2.5 w-2/5"></div>
+            </div>
+          </div>
+        </div>
+      }
+    } @else if (mobileRows().length === 0) {
+      <div class="rise flex flex-col items-center gap-2 px-4 py-12 text-center">
+        <span class="text-[15px] font-semibold">{{ 'common.noData' | transloco }}</span>
+        <span class="text-[13px] text-muted">{{ 'book.empty' | transloco }}</span>
+      </div>
+    } @else {
+      @for (r of mobileRows(); track r.id; let i = $index) {
+        <button
+          type="button"
+          class="tap rise flex cursor-pointer flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white px-3.5 py-3 text-left"
+          [style.animation-delay.ms]="(i % 8) * 30"
+          (click)="openCard(r)"
+        >
+          <span class="flex w-full items-center gap-2.5">
+            <span
+              class="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+              [class]="r.banned ? 'bg-[#FEE4E2] text-danger' : 'bg-chip text-ink-2'"
+              aria-hidden="true"
+              >{{ initials(r) }}</span
+            >
+            <span class="flex min-w-0 flex-1 flex-col gap-px">
+              <span class="truncate text-[15px] font-semibold text-ink">{{ name(r) }}</span>
+              <span class="text-xs text-muted"
+                >{{ r.reg.doc }} · {{ 'guests.col.room' | transloco }} {{ r.reg.room }}</span
+              >
+            </span>
+            <span
+              class="max-w-[42%] shrink-0 truncate rounded-full px-2.5 py-[3px] text-xs font-semibold"
+              [style.background]="tones[r.reg.payment].bg"
+              [style.color]="tones[r.reg.payment].fg"
+              >{{ 'paymentMethods.' + r.reg.payment | transloco }}</span
+            >
+          </span>
+          <span class="flex w-full justify-between border-t border-chip pt-2.5 text-xs text-ink-2">
+            <span>{{ r.reg.checkin | dayMonth }} → {{ r.reg.checkout | dayMonth }}</span>
+            @if (r.banned) {
+              <span class="font-semibold text-danger">{{ 'book.banned' | transloco }}</span>
+            } @else {
+              <span class="font-semibold text-ink"
+                >{{ r.reg.amount | sum }} {{ 'common.currency' | transloco }}</span
+              >
+            }
+          </span>
+        </button>
+      }
+    }
+  </div>
+
+  <button type="button" class="fab tap" (click)="openAdd()">
+    <app-icon name="plus" [stroke]="2.2" />
+    {{ 'guests.mobile.fab' | transloco }}
+  </button>
+
+  <!-- Действия с гостем -->
+  <app-sheet [(visible)]="sheetOpen" [title]="selected() ? name(selected()!) : ''">
+    @if (selected(); as r) {
+      <div class="flex flex-col gap-2 pt-1 pb-2">
+        <p class="m-0 text-[13px] text-muted">
+          {{ 'guests.col.room' | transloco }} {{ r.reg.room }} ·
+          {{ r.reg.checkin | dayMonth }} → {{ r.reg.checkout | dayMonth }} ·
+          {{ 'paymentMethods.' + r.reg.payment | transloco }}
+        </p>
+        <button pButton type="button" class="h-12" (click)="openInfo(r)">
+          <app-icon name="user" />
+          <span pButtonLabel>{{ 'guestInfo.open' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="h-12"
+          (click)="openEdit()"
+        >
+          <app-icon name="edit" />
+          <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          class="h-12"
+          [disabled]="r.banned"
+          (click)="openBlacklist()"
+        >
+          <app-icon name="ban" />
+          <span pButtonLabel>{{ (r.banned ? 'book.banned' : 'book.toBlacklist') | transloco }}</span>
+        </button>
+      </div>
+    }
+  </app-sheet>
+
+  <app-sheet
+    [visible]="regOpen()"
+    (visibleChange)="!$event && closeReg(false)"
+    [full]="true"
+    [title]="'book.checkInTitle' | transloco"
+  >
+    @if (regOpen()) {
+      <div class="pt-3 pb-4">
+        <app-registration-tabs
+          [compact]="true"
+          [presetRoom]="presetRoom()"
+          (done)="closeReg(true)"
+        />
+      </div>
+    }
+  </app-sheet>
+}
+
+<!-- Изменить -->
+<p-dialog
+  [(visible)]="editOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'book.editTitle' | transloco"
+  [style]="{ width: '960px', maxWidth: 'calc(100vw - 32px)' }"
+  [contentStyle]="{ maxHeight: 'calc(100dvh - 210px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  @if (editOpen() && selected(); as r) {
+    <app-registration-form
+      #editForm
+      [multi]="true"
+      [compact]="bp.isMobile()"
+      [initial]="r.reg"
+      (submitRequest)="saveEdit()"
+    />
+  }
+  <ng-template #footer>
+    <button pButton type="button" severity="secondary" [outlined]="true" (click)="editOpen.set(false)">
+      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+    </button>
+    <button pButton type="button" [loading]="editSaving()" (click)="saveEdit()">
+      @if (!editSaving()) {
+        <app-icon name="check" />
+      }
+      <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>
+
+<app-blacklist-dialog [(visible)]="blOpen" [person]="blPerson()" (added)="onBlacklisted()" />
+
+<app-guest-info-dialog [(visible)]="infoOpen" [info]="info()">
+  <button
+    infoActions
+    pButton
+    type="button"
+    severity="secondary"
+    [outlined]="true"
+    (click)="editFromInfo()"
+  >
+    <app-icon name="edit" />
+    <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+  </button>
+</app-guest-info-dialog>

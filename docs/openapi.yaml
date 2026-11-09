@@ -1,0 +1,2997 @@
+# HotelOS (e-hotel) — OpenAPI. Сгенерировано из того же описания, что и PDF.
+openapi: 3.1.0
+info:
+  title: HotelOS (e-hotel) API
+  version: '1.0'
+  description: REST API для фронтенда HotelOS (Angular). Документ от 29.10.2026. Подробности, бизнес-правила и сценарии
+    — в PDF «HotelOS API».
+servers:
+- url: /api/v1
+security:
+- bearer: []
+tags:
+- name: auth
+  description: Авторизация. Вход по логину и паролю, JWT. Сейчас на фронте — моковый вход (любой активный логин
+    + пароль от 4 символов).
+- name: dashboard
+  description: Дашборд. Одна сводка за выбранный период (неделя / месяц / произвольный).
+- name: rooms
+  description: Номера. Номерной фонд, карточка номера, продление, выселение, уборка.
+- name: book
+  description: Книга гостей. Все заселённые гости. Регистрация сразу заселяет в номер. Выезд — только через выселение
+    номера.
+- name: guests
+  description: Гости (архив). Выехавшие гости и поиск по документу для автозаполнения формы.
+- name: blacklist
+  description: Чёрный список. Гости, которым отказано в заселении. Сверка по документу при регистрации.
+- name: fiscal
+  description: Фискальный чек. Номер чека при выселении. Сам Word-документ формирует фронт по шаблону.
+- name: expenses
+  description: Расходы. Учёт расходов отеля.
+- name: users
+  description: Сотрудники и роли. Только owner/admin. Матрица прав — только чтение.
+- name: settings
+  description: Настройки. Данные отеля, категории и тарифы, журнал действий.
+- name: comments
+  description: Комментарии и QR-коды. Уже работает в server/hotel-api.mjs (без авторизации) — перенести в бэкенд.
+    Отзывы гостей по QR-коду в номере.
+paths:
+  /auth/login:
+    post:
+      tags:
+      - auth
+      summary: Вход
+      operationId: postAuthLogin
+      description: 'Доступ: публичный.
+
+        - Логин без учёта регистра, trim.
+
+        - Обновить lastLogin.
+
+        - remember = true — refresh-токен на 30 дней, иначе — на сессию (например, 12 часов).
+
+        - Защита от перебора: не больше 10 попыток в минуту с одного IP/логина.
+
+
+        Фронт: `core/auth/auth.service.ts → login()`'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: auth.invalid — нет такого логина или пароль не подходит
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: auth.blocked — сотрудник заблокирован (active = false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/refresh:
+    post:
+      tags:
+      - auth
+      summary: Обновить токены
+      operationId: postAuthRefresh
+      description: 'Доступ: публичный (refreshToken).
+
+        - Ротация: старый refresh-токен становится недействительным.'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '401':
+          description: auth.unauthorized — refresh-токен неверный, отозван или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Выход
+      operationId: postAuthLogout
+      description: 'Доступ: любой вошедший.
+
+        - Отозвать refresh-токен.
+
+
+        Фронт: `кнопка «Выйти»`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204':
+          description: Успех
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/me:
+    get:
+      tags:
+      - auth
+      summary: Текущий пользователь
+      operationId: getAuthMe
+      description: 'Доступ: любой вошедший.
+
+        - Фронт вызывает при старте, чтобы проверить сессию.'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/change-password:
+    post:
+      tags:
+      - auth
+      summary: Сменить свой пароль
+      operationId: postAuthChangePassword
+      description: 'Доступ: любой вошедший.
+
+        - После успеха mustChangePassword = false.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '204':
+          description: Успех
+        '422':
+          description: validation.failed — старый пароль неверный или новый короче 6 символов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /dashboard:
+    get:
+      tags:
+      - dashboard
+      summary: Сводка за период
+      operationId: getDashboard
+      description: 'Доступ: dashboard ≥ 1.
+
+        - occupancy — доля занятых номеро-ночей за период от продаваемых (номера не на ремонте), округлить до целого
+        %.
+
+        - occupancyDelta — occupancy минус загрузка за предыдущий период такой же длины.
+
+        - revenue по дню — сумма amount выселений (CheckoutRequest.amount) с датой выезда в этот день.
+
+        - expenses по дню — сумма расходов с этой датой.
+
+        - daily — каждый день периода, дни без данных = 0.
+
+        - «Сегодня» — серверная дата в часовом поясе отеля (Asia/Tashkent).
+
+
+        Фронт: `core/data/dashboard.service.ts → summary(from, to)`'
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          example: '2026-10-26'
+        description: Начало периода включительно
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+          example: '2026-10-26'
+        description: Конец периода включительно
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '422':
+          description: validation.failed — from > to или период больше 366 дней
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms:
+    get:
+      tags:
+      - rooms
+      summary: Все номера с проживающими
+      operationId: getRooms
+      description: 'Доступ: rooms ≥ 1.
+
+        - Сортировка по номеру (естественная: 101, 102, …, 1001).
+
+        - guests — текущие гости из «Книги» в этом номере.
+
+        - Статус busy, если есть хотя бы один гость.
+
+
+        Фронт: `core/data/rooms.service.ts → list()`'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - rooms
+      summary: Добавить номер
+      operationId: postRooms
+      description: 'Доступ: admin.
+
+        - Новый номер — status free, note "", guests [].'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomDraft'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '409':
+          description: rooms.exists — номер уже есть
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.failed — неверный формат номера, нет категории
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms/available:
+    get:
+      tags:
+      - rooms
+      summary: Номера для заселения
+      operationId: getRoomsAvailable
+      description: 'Доступ: registration ≥ 2.
+
+        - Свободные (free) и занятые (busy), где guests.length < beds.
+
+        - Используется в выпадающем списке «Номер комнаты» формы регистрации.
+
+
+        Фронт: `rooms.service.ts → checkInRooms()`'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms/{number}:
+    put:
+      tags:
+      - rooms
+      summary: Изменить номер
+      operationId: putRoomsNumber
+      description: 'Доступ: admin.
+
+        - Можно переименовать (number в теле ≠ в пути): обновить ссылки у гостей книги, QR-кодов, комментариев.
+
+        - Статус и гости не меняются.'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomDraft'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: rooms.exists — новый номер уже занят; rooms.hasGuests — beds меньше числа проживающих
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms/{number}/ready:
+    post:
+      tags:
+      - rooms
+      summary: Номер готов (после уборки/ремонта)
+      operationId: postRoomsNumberReady
+      description: 'Доступ: rooms ≥ 2.
+
+        - clean/repair → free, note = "".
+
+        - Журнал: ready { room }.
+
+
+        Фронт: `кнопки «Отметить как готов», «Завершить ремонт»`'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '409':
+          description: rooms.invalidStatus — номер не в статусе clean или repair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms/{number}/status:
+    patch:
+      tags:
+      - rooms
+      summary: Поставить на уборку/ремонт (на будущее)
+      operationId: patchRoomsNumberStatus
+      description: 'Доступ: rooms ≥ 2.
+
+        - В интерфейсе пока нет — можно сделать позже.
+
+        - Только free → clean | repair.'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomStatusUpdate'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '409':
+          description: rooms.hasGuests — в номере гости
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms/{number}/extend:
+    post:
+      tags:
+      - rooms
+      summary: Продлить проживание
+      operationId: postRoomsNumberExtend
+      description: 'Доступ: registration ≥ 2.
+
+        - Новая дата выезда — у всех гостей номера (и в их регистрациях в книге).
+
+        - Журнал: bookingEdit { guest: первый гость, change: «30 → 31.10» }.'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtendRequest'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '409':
+          description: rooms.invalidStatus — в номере нет гостей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.dates — checkout ≤ заезда
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /rooms/{number}/checkout:
+    post:
+      tags:
+      - rooms
+      summary: Выселить (закрыть клиента)
+      operationId: postRoomsNumberCheckout
+      description: 'Доступ: registration ≥ 2.
+
+        - Всё в одной транзакции:
+
+        - 1) выезжающие уходят из книги в архив (ArchivedGuest): checkin — дата заезда, checkout — сегодня, sum
+        — amount у первого выезжающего, у остальных 0;
+
+        - 2) blacklistReason не null — каждый выезжающий в чёрный список (уже внесённые пропустить), addedBy — текущий
+        сотрудник;
+
+        - 3) уехали все — status clean, note "", guests []; остались гости — номер остаётся busy;
+
+        - 4) сохранить запись выселения: room, docs, amount, receipt, кто и когда — нужна для выручки на дашборде;
+
+        - 5) журнал: checkout { guest, room } на каждого.
+
+        - Ответ — номер после выселения.
+
+
+        Фронт: `rooms.ts → confirmCheckout() → book.service.ts → checkout()`'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '409':
+          description: rooms.invalidStatus — в номере нет гостей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.failed — docs пустой или есть документ, которого нет в номере
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /book:
+    get:
+      tags:
+      - book
+      summary: Все заселённые гости
+      operationId: getBook
+      description: 'Доступ: book ≥ 1.
+
+        - Новые сверху (по id убыв.).
+
+
+        Фронт: `core/data/book.service.ts → list()`'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - book
+      summary: Регистрация с заселением (1–10 гостей)
+      operationId: postBook
+      description: 'Доступ: registration ≥ 2.
+
+        - Атомарно: либо все гости заселены, либо ни один.
+
+        - Гости могут быть в разных номерах (у каждого свой room) — обычно в одном.
+
+        - Документ нормализовать для сравнений (без пробелов, верхний регистр), хранить как прислали.
+
+        - Номер → busy, гость появляется в Room.guests: sum = amount, pay = wait если payment = unpaid, иначе paid.
+
+        - Сохранить/обновить профиль гостя по документу — для GET /guests/lookup.
+
+        - Журнал: checkin { guest: «Фамилия Имя», room } на каждого.
+
+        - fiscalReceipt и sendEmehmon — только сохранить (сейчас всегда false).
+
+
+        Фронт: `registration-tabs.ts → save() → book.service.ts → register()`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookCreateRequest'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookEntry'
+        '422':
+          description: validation.failed — нет doc/lastName/firstName/room или amount < 0; validation.dates — checkout
+            ≤ checkin; guests.duplicateDoc — один документ дважды в запросе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: common.notFound — номер не существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'rooms.unavailable — номер на уборке/ремонте; rooms.full — мест не хватает: уже живущие +
+            новые > beds; guests.alreadyIn — гость с этим документом уже проживает; blacklist.found — документ в
+            ЧС и confirmBlacklisted ≠ true'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /book/{id}:
+    put:
+      tags:
+      - book
+      summary: Изменить данные гостя
+      operationId: putBookId
+      description: 'Доступ: registration ≥ 2.
+
+        - Если room изменился — гость переезжает: убрать из старого номера (пустой → clean), добавить в новый.
+
+        - Обновить карточку номера (RoomGuest) и профиль гостя.
+
+
+        Фронт: `book.ts → saveEdit()`'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestRegistration'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEntry'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.dates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: rooms.full — перевод в номер без мест; rooms.unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /guests/archive:
+    get:
+      tags:
+      - guests
+      summary: Архив выехавших гостей
+      operationId: getGuestsArchive
+      description: 'Доступ: archive ≥ 1.
+
+        - Сортировка по дате выезда, новые сверху.
+
+
+        Фронт: `core/data/guests.service.ts → archive()`'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ArchivedGuest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /guests/lookup:
+    get:
+      tags:
+      - guests
+      summary: Найти гостя по документу (лупа)
+      operationId: getGuestsLookup
+      description: 'Доступ: registration ≥ 2.
+
+        - Искать по нормализованному документу среди всех известных профилей (архив и книга), брать самый свежий.
+
+
+        Фронт: `registration-form.ts → lookup(), blacklist-dialog.ts → lookup()`'
+      parameters:
+      - name: doc
+        in: query
+        required: true
+        schema:
+          type: string
+        description: Серия и номер, пробелы и регистр не важны
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestProfile'
+        '404':
+          description: guests.notFound — гостя с таким документом не было
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /blacklist:
+    get:
+      tags:
+      - blacklist
+      summary: Весь чёрный список
+      operationId: getBlacklist
+      description: 'Доступ: blacklist ≥ 1 или registration ≥ 2.
+
+        - Новые сверху.
+
+        - Ресепшн нужен список (или check) для предупреждения при заселении.
+
+
+        Фронт: `core/data/blacklist.service.ts → list()`'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BlacklistEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - blacklist
+      summary: Добавить в чёрный список
+      operationId: postBlacklist
+      description: 'Доступ: blacklist = 2.
+
+        - addedAt — сейчас, addedBy — ФИО текущего сотрудника.
+
+        - Добавляют из страницы ЧС, «Книги», «Гостей» и при выселении (через checkout).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlacklistDraft'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlacklistEntry'
+        '409':
+          description: blacklist.exists — документ уже в списке
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.failed — нет doc/фамилии/имени/причины
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /blacklist/check:
+    get:
+      tags:
+      - blacklist
+      summary: Проверить документы
+      operationId: getBlacklistCheck
+      description: 'Доступ: registration ≥ 2.
+
+        - Возвращает только совпадения (пустой массив — всё чисто).
+
+        - Фронт вызывает перед заселением и после «лупы», чтобы показать модалку-предупреждение.
+
+
+        Фронт: `blacklist.service.ts → find() (сейчас синхронно по загруженному списку)`'
+      parameters:
+      - name: doc
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+        description: 'Один или несколько: ?doc=AB1234567&doc=AC7654321'
+        style: form
+        explode: true
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BlacklistEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /blacklist/{id}:
+    delete:
+      tags:
+      - blacklist
+      summary: Убрать из чёрного списка
+      operationId: deleteBlacklistId
+      description: 'Доступ: blacklist = 2.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Успех
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /fiscal/receipts:
+    post:
+      tags:
+      - fiscal
+      summary: Получить номер чека
+      operationId: postFiscalReceipts
+      description: 'Доступ: registration ≥ 2.
+
+        - Номер — сквозной счётчик отеля, 6 цифр с ведущими нулями.
+
+        - Сохранить чек; при выселении номер чека придёт в CheckoutRequest.receipt.
+
+        - Word-файл (бланк «Счёт» гостиницы) формирует фронт: public/templates/fiscal-receipt.docx. Бэкенду PDF/Word
+        делать не нужно.
+
+        - Подключение онлайн-ККМ / ОФД — отдельная задача, пока не нужно.
+
+
+        Фронт: `rooms.ts → generateReceipt() → book.service.ts → fiscalReceipt()`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptRequest'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '422':
+          description: validation.failed — amount ≤ 0, нет номера или гостей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /expenses:
+    get:
+      tags:
+      - expenses
+      summary: Список расходов
+      operationId: getExpenses
+      description: 'Доступ: expenses ≥ 1.
+
+        - Новые сверху (по date, затем id).
+
+
+        Фронт: `core/data/expenses.service.ts → list()`'
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-10-26'
+        description: ''
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-10-26'
+        description: ''
+      - name: who
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ФИО сотрудника
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Expense'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - expenses
+      summary: Добавить расход
+      operationId: postExpenses
+      description: 'Доступ: expenses = 2.
+
+        - Журнал: expense { reason, sum: «3 200 000» }.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseDraft'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '422':
+          description: validation.failed — нет reason, sum ≤ 0, нет даты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /expenses/recent:
+    get:
+      tags:
+      - expenses
+      summary: Последние расходы (дашборд)
+      operationId: getExpensesRecent
+      description: 'Доступ: dashboard ≥ 1.
+
+
+        Фронт: `expenses.service.ts → recent()`'
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: По умолчанию 5
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Expense'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /expenses/{id}:
+    put:
+      tags:
+      - expenses
+      summary: Изменить расход
+      operationId: putExpensesId
+      description: 'Доступ: expenses = 2.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpenseDraft'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags:
+      - expenses
+      summary: Удалить расход
+      operationId: deleteExpensesId
+      description: 'Доступ: expenses = 2.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Успех
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /staff:
+    get:
+      tags:
+      - expenses
+      summary: Сотрудники для выпадающих списков
+      operationId: getStaff
+      description: 'Доступ: любой вошедший.
+
+        - Только активные. Нужен в «Расходах» (кто израсходовал) и фильтре журнала. Сейчас на фронте — MOCK_STAFF_NAMES.'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffShort'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /users:
+    get:
+      tags:
+      - users
+      summary: Все сотрудники
+      operationId: getUsers
+      description: 'Доступ: admin.
+
+        - online — был запрос с токеном этого сотрудника за последние 5 минут.
+
+
+        Фронт: `core/data/users.service.ts`'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - users
+      summary: Добавить сотрудника
+      operationId: postUsers
+      description: 'Доступ: admin.
+
+        - Пароль хранить только хэшем (bcrypt/argon2).
+
+        - mustChangePassword = true.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffUserDraft'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffUser'
+        '409':
+          description: users.loginTaken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.failed — логин не по шаблону, пароль < 6
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /roles/permissions:
+    get:
+      tags:
+      - users
+      summary: Матрица прав (только чтение)
+      operationId: getRolesPermissions
+      description: 'Доступ: admin.
+
+        - Те же значения, по которым бэкенд проверяет доступ (таблица «Роли и доступ»).'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermissionRow'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /users/{id}:
+    put:
+      tags:
+      - users
+      summary: Изменить сотрудника
+      operationId: putUsersId
+      description: 'Доступ: admin.
+
+        - password — только если прислан.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffUserDraft'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffUser'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: users.loginTaken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: users.self — снять active у себя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags:
+      - users
+      summary: Удалить сотрудника
+      operationId: deleteUsersId
+      description: 'Доступ: admin.
+
+        - Лучше мягкое удаление: в журнале и расходах остаётся ФИО.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Успех
+        '403':
+          description: users.self — себя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/{id}/active:
+    patch:
+      tags:
+      - users
+      summary: Заблокировать / разблокировать
+      operationId: patchUsersIdActive
+      description: 'Доступ: admin.
+
+        - При блокировке отозвать все токены сотрудника.
+
+        - Журнал: block { user } при active = false.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActiveUpdate'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffUser'
+        '403':
+          description: users.self — свою учётную запись
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/{id}/reset-password:
+    post:
+      tags:
+      - users
+      summary: Сбросить пароль
+      operationId: postUsersIdResetPassword
+      description: 'Доступ: admin.
+
+        - Сгенерировать временный пароль и отправить SMS на phone (фронт пишет «Временный пароль отправлен по SMS»).
+
+        - mustChangePassword = true. Если SMS пока нет — вернуть 200 { "temporaryPassword": "…" } и договориться
+        с фронтом.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Успех
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /settings/hotel:
+    get:
+      tags:
+      - settings
+      summary: Данные отеля
+      operationId: getSettingsHotel
+      description: 'Доступ: любой вошедший.
+
+        - Нужны всем: название в шапке, время заезда/выезда.'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags:
+      - settings
+      summary: Сохранить данные отеля
+      operationId: putSettingsHotel
+      description: 'Доступ: admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HotelSettings'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelSettings'
+        '422':
+          description: settings.innInvalid — ИНН не пустой и не 9 цифр
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /categories:
+    get:
+      tags:
+      - settings
+      summary: Категории и тарифы
+      operationId: getCategories
+      description: 'Доступ: любой вошедший.
+
+        - rooms — сколько номеров в категории.'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoomCategory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - settings
+      summary: Добавить категорию
+      operationId: postCategories
+      description: 'Доступ: admin.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDraft'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomCategory'
+        '409':
+          description: settings.categoryExists — название без учёта регистра
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /categories/{id}:
+    put:
+      tags:
+      - settings
+      summary: Изменить категорию
+      operationId: putCategoriesId
+      description: 'Доступ: admin.
+
+        - Переименование — обновить category у номеров.
+
+        - Цена изменилась — журнал tariffEdit.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryDraft'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomCategory'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: settings.categoryExists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags:
+      - settings
+      summary: Удалить категорию
+      operationId: deleteCategoriesId
+      description: 'Доступ: admin.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Успех
+        '409':
+          description: settings.categoryInUse — есть номера этой категории
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /audit-log:
+    get:
+      tags:
+      - settings
+      summary: Журнал действий
+      operationId: getAuditLog
+      description: 'Доступ: admin.
+
+        - Новые сверху. Записи создаёт сам бэкенд (таблица событий).'
+      parameters:
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-10-26'
+        description: ''
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+          example: '2026-10-26'
+        description: ''
+      - name: who
+        in: query
+        required: false
+        schema:
+          type: string
+        description: ФИО
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActionLogEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /audit-log/authors:
+    get:
+      tags:
+      - settings
+      summary: Сотрудники в журнале (фильтр)
+      operationId: getAuditLogAuthors
+      description: 'Доступ: admin.'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /comments:
+    get:
+      tags:
+      - comments
+      summary: Все комментарии
+      operationId: getComments
+      description: 'Доступ: любой вошедший.
+
+        - Новые сверху. Фронт опрашивает каждые 10 секунд (бейдж «новых» в меню).'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GuestComment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - comments
+      summary: Оставить комментарий (страница гостя /c/{room})
+      operationId: postComments
+      description: 'Доступ: публичный.
+
+        - Без авторизации — ограничить частоту (например, 5 в минуту с IP).
+
+        - status = new.'
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentDraft'
+      responses:
+        '201':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestComment'
+        '403':
+          description: comments.qrDisabled — QR для номера выключен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: validation.failed — rating не 1–5, пустой текст
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /comments/{id}:
+    patch:
+      tags:
+      - comments
+      summary: Отметить прочитанным / новым
+      operationId: patchCommentsId
+      description: 'Доступ: любой вошедший.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentStatusUpdate'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestComment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    delete:
+      tags:
+      - comments
+      summary: Удалить комментарий
+      operationId: deleteCommentsId
+      description: 'Доступ: admin.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Успех
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /comments/read-all:
+    post:
+      tags:
+      - comments
+      summary: Отметить все прочитанными
+      operationId: postCommentsReadAll
+      description: 'Доступ: любой вошедший.'
+      responses:
+        '204':
+          description: Успех
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /qr:
+    get:
+      tags:
+      - comments
+      summary: Номера с включённым QR
+      operationId: getQr
+      description: 'Доступ: любой вошедший.'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /qr/{room}:
+    get:
+      tags:
+      - comments
+      summary: Включён ли QR (страница гостя)
+      operationId: getQrRoom
+      description: 'Доступ: публичный.'
+      parameters:
+      - name: room
+        in: path
+        required: true
+        schema:
+          type: string
+      security: []
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrState'
+    put:
+      tags:
+      - comments
+      summary: Включить / выключить QR
+      operationId: putQrRoom
+      description: 'Доступ: admin.
+
+        - from — прежний номер при переименовании комнаты (перенести состояние).'
+      parameters:
+      - name: room
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QrUpdate'
+      responses:
+        '200':
+          description: Успех
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QrState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Unauthorized:
+      description: auth.unauthorized — нет токена или истёк
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: auth.forbidden — роли не хватает прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    RoleCode:
+      type: string
+      enum:
+      - owner
+      - admin
+      - reception
+      - housekeeper
+      - accountant
+      description: 'Роль сотрудника: владелец, администратор, ресепшн, горничная, бухгалтер.'
+    RoomStatus:
+      type: string
+      enum:
+      - free
+      - busy
+      - clean
+      - repair
+      description: 'Статус номера: свободен, занят, уборка, ремонт.'
+    PaymentStatus:
+      type: string
+      enum:
+      - paid
+      - part
+      - wait
+      description: 'Статус оплаты проживающего: оплачено, предоплата, ожидает оплаты.'
+    PaymentMethod:
+      type: string
+      enum:
+      - cash
+      - uzcard
+      - visa
+      - transfer
+      - unpaid
+      description: 'Способ оплаты: наличные, Uzcard/Humo, Visa/Mastercard, перечисление, не оплачен.'
+    DocType:
+      type: string
+      enum:
+      - bio_passport
+      - id_card
+      - foreign_passport
+      description: 'Тип документа: биометрический паспорт РУз, ID-карта РУз, заграничный паспорт.'
+    Sex:
+      type: string
+      enum:
+      - male
+      - female
+      description: Пол.
+    VisitPurpose:
+      type: string
+      enum:
+      - tourism
+      - business
+      - private
+      description: Цель визита.
+    VisaType:
+      type: string
+      enum:
+      - visa_free
+      - tourist
+      - business
+      description: Тип визы (только для иностранцев).
+    Lang:
+      type: string
+      enum:
+      - ru
+      - uz-Latn
+      - uz-Cyrl
+      description: Язык интерфейса.
+    CommentStatus:
+      type: string
+      enum:
+      - new
+      - read
+      description: Статус комментария гостя.
+    LogAction:
+      type: string
+      enum:
+      - checkin
+      - checkout
+      - ready
+      - bookingEdit
+      - tariffEdit
+      - expense
+      - block
+      description: Тип события в журнале действий.
+    CurrentUser:
+      description: Текущий пользователь (после входа).
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          description: ФИО сотрудника
+        login:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        hotelName:
+          type: string
+          description: Название отеля (из настроек)
+        hotelCity:
+          type: string
+          description: Город отеля
+        mustChangePassword:
+          type: boolean
+          description: true — после сброса пароля, фронт попросит сменить (новое поле)
+      required:
+      - id
+      - name
+      - login
+      - role
+      - hotelName
+      - hotelCity
+    LoginRequest:
+      description: Вход по логину и паролю.
+      type: object
+      properties:
+        login:
+          type: string
+          description: Без учёта регистра, пробелы по краям обрезаются
+        password:
+          type: string
+          description: Минимум 4 символа
+        remember:
+          type: boolean
+          description: true — долгая сессия (refresh 30 дней), false — до закрытия браузера
+      required:
+      - login
+      - password
+      - remember
+    TokenPair:
+      description: Токены доступа.
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT, живёт ~15 минут
+        refreshToken:
+          type: string
+          description: Для POST /auth/refresh
+        expiresIn:
+          type: integer
+          description: Срок жизни accessToken в секундах
+      required:
+      - accessToken
+      - refreshToken
+      - expiresIn
+    LoginResponse:
+      description: Ответ на вход.
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        user:
+          $ref: '#/components/schemas/CurrentUser'
+      required:
+      - accessToken
+      - refreshToken
+      - expiresIn
+      - user
+    RoomCategory:
+      description: Категория номеров и тариф.
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          description: 'Уникальное название: «Стандарт», «Делюкс»…'
+        rooms:
+          type: integer
+          description: Сколько номеров этой категории (вычисляется сервером)
+        beds:
+          type: string
+          description: 'Текстом: «1–2», «4»'
+        price:
+          type: integer
+          description: Базовый тариф за ночь, сум
+      required:
+      - id
+      - name
+      - rooms
+      - beds
+      - price
+    CategoryDraft:
+      description: Создание/изменение категории.
+      type: object
+      properties:
+        name:
+          type: string
+        beds:
+          type: string
+        price:
+          type: integer
+          description: '> 0'
+      required:
+      - name
+      - beds
+      - price
+    RoomGuest:
+      description: Проживающий в номере (краткие данные для карточки номера).
+      type: object
+      properties:
+        name:
+          type: string
+          description: «Фамилия Имя»
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2
+        doc:
+          type: string
+          description: Серия и номер документа
+        phone:
+          type: string
+          description: Может быть пустой строкой
+        checkin:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Местное время отеля (Asia/Tashkent), без зоны и секунд
+        checkout:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Местное время отеля (Asia/Tashkent), без зоны и секунд
+        sum:
+          type: integer
+          description: Сумма по регистрации этого гостя, сум
+        pay:
+          allOf:
+          - $ref: '#/components/schemas/PaymentStatus'
+          description: unpaid → wait, иначе paid
+      required:
+      - name
+      - country
+      - doc
+      - phone
+      - checkin
+      - checkout
+      - sum
+      - pay
+    Room:
+      description: Номер (комната).
+      type: object
+      properties:
+        number:
+          type: string
+          description: 'Идентификатор в URL: «206», «12A»'
+        floor:
+          type: integer
+        category:
+          type: string
+          description: Название категории
+        beds:
+          type: integer
+          description: Количество мест
+        status:
+          $ref: '#/components/schemas/RoomStatus'
+        note:
+          type: string
+          description: 'Подсказка на карточке: «Уборка: Гулнора», «Мастер вызван». Может быть пустой'
+        price:
+          type:
+          - integer
+          - 'null'
+          description: Свой тариф номера; null — тариф категории (новое поле)
+        guests:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomGuest'
+          description: Все проживающие; пусто — номер не занят
+      required:
+      - number
+      - floor
+      - category
+      - beds
+      - status
+      - note
+      - guests
+    RoomDraft:
+      description: Создание/изменение номера.
+      type: object
+      properties:
+        number:
+          type: string
+          description: Шаблон ^\d{1,4}[A-Za-zА-Яа-я]?$
+        floor:
+          type: integer
+          description: 1–5
+        category:
+          type: string
+          description: Существующая категория
+        beds:
+          type: integer
+          description: 1–4
+        price:
+          type:
+          - integer
+          - 'null'
+          description: null — брать тариф категории
+      required:
+      - number
+      - floor
+      - category
+      - beds
+      - price
+    ExtendRequest:
+      description: Продление проживания.
+      type: object
+      properties:
+        checkout:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Новая дата и время выезда для всех гостей номера
+      required:
+      - checkout
+    CheckoutRequest:
+      description: Выселение (закрытие клиента).
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            type: string
+          description: Документы выезжающих гостей (не пусто). Все гости — номер уходит на уборку
+        amount:
+          type: integer
+          description: Итоговая сумма, сум (≥ 0)
+        receipt:
+          type:
+          - string
+          - 'null'
+          description: Номер фискального чека (из POST /fiscal/receipts) или null
+        blacklistReason:
+          type:
+          - string
+          - 'null'
+          description: Не null — добавить всех выезжающих в чёрный список с этой причиной
+      required:
+      - docs
+      - amount
+      - receipt
+      - blacklistReason
+    GuestProfile:
+      description: Данные гостя по документу (автозаполнение формы по «лупе»).
+      type: object
+      properties:
+        docType:
+          $ref: '#/components/schemas/DocType'
+        doc:
+          type: string
+          description: Серия и номер, например «AB 1234567»
+        issuedAt:
+          type:
+          - string
+          - 'null'
+          format: date
+          example: '2026-10-26'
+          description: Дата выдачи
+        expiresAt:
+          type:
+          - string
+          - 'null'
+          format: date
+          example: '2026-10-26'
+          description: Действителен до
+        issuedBy:
+          type: string
+          description: Кем выдан
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+          description: Может быть пустой
+        birthDate:
+          type:
+          - string
+          - 'null'
+          format: date
+          example: '2026-10-26'
+        sex:
+          $ref: '#/components/schemas/Sex'
+        country:
+          type: string
+          description: Гражданство, ISO 3166-1 alpha-2
+        nationality:
+          type: string
+          description: Национальность текстом
+        phone:
+          type: string
+        cityFrom:
+          type: string
+          description: Откуда прибыл
+        address:
+          type: string
+          description: Адрес постоянного проживания
+      required:
+      - docType
+      - doc
+      - issuedAt
+      - expiresAt
+      - issuedBy
+      - lastName
+      - firstName
+      - middleName
+      - birthDate
+      - sex
+      - country
+      - nationality
+      - phone
+      - cityFrom
+      - address
+    GuestRegistration:
+      description: Регистрация гостя = все поля GuestProfile + поля ниже.
+      allOf:
+      - $ref: '#/components/schemas/GuestProfile'
+      - type: object
+        properties:
+          foreign:
+            type: boolean
+            description: Иностранец (не гражданин РУз)
+          visaType:
+            anyOf:
+            - $ref: '#/components/schemas/VisaType'
+            - type: 'null'
+            description: Только для иностранцев, иначе null
+          entryDate:
+            type:
+            - string
+            - 'null'
+            format: date
+            example: '2026-10-26'
+            description: Дата въезда в РУз (иностранцы)
+          entryPoint:
+            type: string
+            description: Пункт въезда (иностранцы), иначе пусто
+          room:
+            type: string
+            description: Номер комнаты
+          checkin:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+            example: 2026-10-26T14:00
+            description: Заезд
+          checkout:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+            example: 2026-10-26T14:00
+            description: Выезд, строго позже заезда
+          purpose:
+            $ref: '#/components/schemas/VisitPurpose'
+          amount:
+            type: integer
+            description: Договорная сумма за весь период, сум (≥ 0)
+          payment:
+            $ref: '#/components/schemas/PaymentMethod'
+          fiscalReceipt:
+            type: boolean
+            description: Сейчас всегда false (чек — при выселении). Хранить, не обрабатывать
+          sendEmehmon:
+            type: boolean
+            description: Сейчас всегда false. Хранить, интеграцию с E-mehmon не делать
+        required:
+        - foreign
+        - visaType
+        - entryDate
+        - entryPoint
+        - room
+        - checkin
+        - checkout
+        - purpose
+        - amount
+        - payment
+        - fiscalReceipt
+        - sendEmehmon
+    BookEntry:
+      description: Запись «Книги гостей» — заселённый гость.
+      type: object
+      properties:
+        id:
+          type: integer
+        reg:
+          allOf:
+          - $ref: '#/components/schemas/GuestRegistration'
+          description: Полные данные регистрации
+      required:
+      - id
+      - reg
+    BookCreateRequest:
+      description: Регистрация с заселением одного или нескольких гостей (табы в модалке).
+      type: object
+      properties:
+        registrations:
+          type: array
+          items:
+            $ref: '#/components/schemas/GuestRegistration'
+          description: От 1 до 10 гостей; сохраняются атомарно
+        confirmBlacklisted:
+          type: boolean
+          description: true — сотрудник видел предупреждение о ЧС и всё равно заселяет
+      required:
+      - registrations
+    ArchivedGuest:
+      description: Гость в архиве (после выезда).
+      type: object
+      properties:
+        id:
+          type: integer
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+        doc:
+          type: string
+        country:
+          type: string
+        room:
+          type: string
+        checkin:
+          type: string
+          format: date
+          example: '2026-10-26'
+        checkout:
+          type: string
+          format: date
+          example: '2026-10-26'
+          description: Фактическая дата выезда
+        sum:
+          type: integer
+          description: Итог выселения у первого выезжающего, у остальных 0
+        birthDate:
+          type: string
+          format: date
+          example: '2026-10-26'
+          description: Пустая строка, если неизвестна
+        sex:
+          $ref: '#/components/schemas/Sex'
+        phone:
+          type: string
+      required:
+      - id
+      - lastName
+      - firstName
+      - middleName
+      - doc
+      - country
+      - room
+      - checkin
+      - checkout
+      - sum
+      - birthDate
+      - sex
+      - phone
+    BlacklistEntry:
+      description: Гость в чёрном списке. Сверка — по документу.
+      type: object
+      properties:
+        id:
+          type: integer
+        doc:
+          type: string
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+        country:
+          type: string
+        reason:
+          type: string
+          description: Причина, обязательна
+        addedAt:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Ставит сервер
+        addedBy:
+          type: string
+          description: ФИО сотрудника, ставит сервер
+      required:
+      - id
+      - doc
+      - lastName
+      - firstName
+      - middleName
+      - country
+      - reason
+      - addedAt
+      - addedBy
+    BlacklistDraft:
+      description: Добавление в чёрный список.
+      type: object
+      properties:
+        doc:
+          type: string
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+        country:
+          type: string
+        reason:
+          type: string
+          description: Не пустая (после trim)
+      required:
+      - doc
+      - lastName
+      - firstName
+      - middleName
+      - country
+      - reason
+    ReceiptRequest:
+      description: Запрос номера фискального чека.
+      type: object
+      properties:
+        room:
+          type: string
+        amount:
+          type: integer
+          description: '> 0'
+        docs:
+          type: array
+          items:
+            type: string
+          description: Документы выезжающих гостей
+      required:
+      - room
+      - amount
+      - docs
+    Receipt:
+      description: Фискальный чек (номер счёта).
+      type: object
+      properties:
+        number:
+          type: string
+          description: '6 цифр с ведущими нулями, сквозная нумерация: «001041»'
+        room:
+          type: string
+        amount:
+          type: integer
+        createdAt:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Местное время отеля (Asia/Tashkent), без зоны и секунд
+      required:
+      - number
+      - room
+      - amount
+      - createdAt
+    Expense:
+      description: Расход.
+      type: object
+      properties:
+        id:
+          type: integer
+        reason:
+          type: string
+          description: На что потрачено
+        sum:
+          type: integer
+          description: '> 0, сум'
+        date:
+          type: string
+          format: date
+          example: '2026-10-26'
+        who:
+          type: string
+          description: ФИО сотрудника, кто израсходовал
+      required:
+      - id
+      - reason
+      - sum
+      - date
+      - who
+    ExpenseDraft:
+      description: Создание/изменение расхода.
+      type: object
+      properties:
+        reason:
+          type: string
+        sum:
+          type: integer
+        date:
+          type: string
+          format: date
+          example: '2026-10-26'
+        who:
+          type: string
+          description: ФИО из GET /staff
+      required:
+      - reason
+      - sum
+      - date
+      - who
+    StaffUser:
+      description: Сотрудник (пользователь системы).
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        login:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        phone:
+          type: string
+        active:
+          type: boolean
+          description: false — заблокирован, войти не может
+        lastLogin:
+          type:
+          - string
+          - 'null'
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: null — ещё не входил
+        online:
+          type: boolean
+          description: Был активен за последние 5 минут
+      required:
+      - id
+      - name
+      - login
+      - role
+      - phone
+      - active
+      - lastLogin
+      - online
+    StaffUserDraft:
+      description: Создание/изменение сотрудника.
+      type: object
+      properties:
+        name:
+          type: string
+        login:
+          type: string
+          description: Шаблон ^[a-z0-9._-]{3,32}$, уникальный
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        phone:
+          type: string
+        active:
+          type: boolean
+        password:
+          type: string
+          description: Обязателен при создании (≥ 6), при изменении — только если меняют
+      required:
+      - name
+      - login
+      - role
+      - phone
+      - active
+    StaffShort:
+      description: Сотрудник для выпадающих списков.
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleCode'
+      required:
+      - id
+      - name
+      - role
+    RoleAccess:
+      description: 'Уровень доступа ролей к разделу: 2 — полный, 1 — просмотр, 0 — нет.'
+      type: object
+      properties:
+        owner:
+          type: integer
+          description: 0 | 1 | 2
+        admin:
+          type: integer
+        reception:
+          type: integer
+        housekeeper:
+          type: integer
+        accountant:
+          type: integer
+      required:
+      - owner
+      - admin
+      - reception
+      - housekeeper
+      - accountant
+    PermissionRow:
+      description: Строка матрицы прав.
+      type: object
+      properties:
+        section:
+          type: string
+          description: dashboard | registration | rooms | book | blacklist | archive | expenses | admin
+        access:
+          $ref: '#/components/schemas/RoleAccess'
+      required:
+      - section
+      - access
+    HotelSettings:
+      description: Настройки отеля.
+      type: object
+      properties:
+        name:
+          type: string
+          description: Название
+        legalName:
+          type: string
+          description: Юр. лицо
+        inn:
+          type: string
+          description: 'ИНН: 9 цифр или пусто'
+        phone:
+          type: string
+        address:
+          type: string
+        checkinTime:
+          type: string
+          description: «HH:mm», расчётное время заезда
+        checkoutTime:
+          type: string
+          description: «HH:mm», расчётное время выезда
+        defaultLang:
+          $ref: '#/components/schemas/Lang'
+        currency:
+          type: string
+          description: Всегда «UZS»
+      required:
+      - name
+      - legalName
+      - inn
+      - phone
+      - address
+      - checkinTime
+      - checkoutTime
+      - defaultLang
+      - currency
+    ActionLogEntry:
+      description: Событие журнала действий.
+      type: object
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Местное время отеля (Asia/Tashkent), без зоны и секунд
+        who:
+          type: string
+          description: ФИО сотрудника
+        action:
+          $ref: '#/components/schemas/LogAction'
+        params:
+          type: object
+          additionalProperties:
+            type: string
+          description: Параметры для текста (см. таблицу событий)
+      required:
+      - id
+      - at
+      - who
+      - action
+      - params
+    DailyFinance:
+      description: Финансы за день.
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2026-10-26'
+        revenue:
+          type: integer
+          description: Выручка, сум
+        expenses:
+          type: integer
+          description: Расходы, сум
+      required:
+      - date
+      - revenue
+      - expenses
+    Arrival:
+      description: Заезд сегодня (таблица на дашборде).
+      type: object
+      properties:
+        guest:
+          type: string
+        room:
+          type: string
+        category:
+          type: string
+        from:
+          type: string
+          format: date
+          example: '2026-10-26'
+        to:
+          type: string
+          format: date
+          example: '2026-10-26'
+        sum:
+          type: integer
+        pay:
+          $ref: '#/components/schemas/PaymentStatus'
+      required:
+      - guest
+      - room
+      - category
+      - from
+      - to
+      - sum
+      - pay
+    CategoryOccupancy:
+      description: Загрузка категории за период.
+      type: object
+      properties:
+        name:
+          type: string
+        rooms:
+          type: integer
+        occupancy:
+          type: integer
+          description: '%, 0–100'
+      required:
+      - name
+      - rooms
+      - occupancy
+    RoomFund:
+      description: 'Номерной фонд сейчас: количество номеров по статусам.'
+      type: object
+      properties:
+        free:
+          type: integer
+        busy:
+          type: integer
+        clean:
+          type: integer
+        repair:
+          type: integer
+      required:
+      - free
+      - busy
+      - clean
+      - repair
+    DashboardSummary:
+      description: Сводка дашборда за период.
+      type: object
+      properties:
+        occupancy:
+          type: integer
+          description: Загрузка за период, %
+        occupancyDelta:
+          type: integer
+          description: Изменение к предыдущему такому же периоду, п.п. (может быть < 0)
+        arrivalsToday:
+          type: integer
+          description: Заезды сегодня
+        arrivalsWaitingPayment:
+          type: integer
+          description: Из них с payment = unpaid
+        departuresToday:
+          type: integer
+          description: Выезды сегодня (checkout сегодня)
+        lateCheckouts:
+          type: integer
+          description: Выезды сегодня позже checkoutTime отеля
+        daily:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyFinance'
+          description: По каждому дню периода, без пропусков
+        fund:
+          $ref: '#/components/schemas/RoomFund'
+        totalRooms:
+          type: integer
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryOccupancy'
+        arrivals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Arrival'
+          description: Заезды сегодня
+      required:
+      - occupancy
+      - occupancyDelta
+      - arrivalsToday
+      - arrivalsWaitingPayment
+      - departuresToday
+      - lateCheckouts
+      - daily
+      - fund
+      - totalRooms
+      - categories
+      - arrivals
+    GuestComment:
+      description: Комментарий гостя по QR-коду.
+      type: object
+      properties:
+        id:
+          type: integer
+        at:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$
+          example: 2026-10-26T14:00
+          description: Местное время отеля (Asia/Tashkent), без зоны и секунд
+        room:
+          type: string
+        guest:
+          type: string
+          description: Имя; пусто — аноним
+        rating:
+          type: integer
+          description: 1–5
+        text:
+          type: string
+          description: ≤ 500 символов
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+      required:
+      - id
+      - at
+      - room
+      - guest
+      - rating
+      - text
+      - status
+    CommentDraft:
+      description: Новый комментарий (публично, со страницы гостя).
+      type: object
+      properties:
+        room:
+          type: string
+        rating:
+          type: integer
+          description: 1–5
+        text:
+          type: string
+          description: Не пустой, ≤ 500
+        guest:
+          type: string
+          description: ≤ 60
+      required:
+      - room
+      - rating
+      - text
+    QrState:
+      description: QR-код номера.
+      type: object
+      properties:
+        room:
+          type: string
+        enabled:
+          type: boolean
+      required:
+      - room
+      - enabled
+    QrUpdate:
+      description: Включить/выключить QR-код.
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        from:
+          type: string
+          description: Прежний номер, если номер комнаты переименовали
+      required:
+      - enabled
+    Error:
+      type: object
+      description: Ошибка. Фронт показывает текст по коду (errors.<code> в словарях).
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          properties:
+            code:
+              type: string
+              enum:
+              - auth.invalid
+              - auth.blocked
+              - auth.unauthorized
+              - auth.forbidden
+              - common.notFound
+              - common.unknown
+              - validation.failed
+              - validation.dates
+              - rooms.exists
+              - rooms.full
+              - rooms.unavailable
+              - rooms.invalidStatus
+              - rooms.hasGuests
+              - guests.notFound
+              - guests.duplicateDoc
+              - guests.alreadyIn
+              - blacklist.exists
+              - blacklist.found
+              - settings.innInvalid
+              - settings.categoryExists
+              - settings.categoryInUse
+              - users.loginTaken
+              - users.self
+              - comments.qrDisabled
+            message:
+              type: string
+            params:
+              type: object
+              additionalProperties:
+                type: string
+            fields:
+              type: object
+              additionalProperties:
+                type: string
+    RefreshRequest:
+      description: Токен обновления.
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required:
+      - refreshToken
+    ChangePasswordRequest:
+      description: Смена пароля.
+      type: object
+      properties:
+        oldPassword:
+          type: string
+        newPassword:
+          type: string
+          description: ≥ 6
+      required:
+      - oldPassword
+      - newPassword
+    RoomStatusUpdate:
+      description: Новый статус номера.
+      type: object
+      properties:
+        status:
+          allOf:
+          - $ref: '#/components/schemas/RoomStatus'
+          description: clean | repair
+        note:
+          type: string
+          description: Например «Не работает кондиционер»
+      required:
+      - status
+    ActiveUpdate:
+      description: Блокировка.
+      type: object
+      properties:
+        active:
+          type: boolean
+      required:
+      - active
+    CommentStatusUpdate:
+      description: Статус комментария.
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+      required:
+      - status
