@@ -42,4 +42,6 @@ jobs:
       - name: Deploy on the hotel server
         env:
           GH_TOKEN: ${{ secrets.HOTEL_MS_DISPATCH_TOKEN }}
-        run: gh workflow run deploy-web.yml -R izzatmadaminov/hotel-ms -f tag=sha-${GITHUB_SHA}
+        run: |
+          gh api -X POST repos/izzatmadaminov/hotel-ms/actions/workflows/deploy-web.yml/dispatches \
+            -f ref=main -f "inputs[tag]=sha-${GITHUB_SHA}"
