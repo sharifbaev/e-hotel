@@ -3,6 +3,8 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ButtonModule } from 'primeng/button';
 import { AuthService } from '../../core/auth/auth.service';
+import { AppSection } from '../../core/models';
+import { RoleLabelPipe } from '../../shared/ui/status/role-label.pipe';
 import { CommentsService } from '../../core/data/comments.service';
 import { initials } from '../../shared/format/format';
 import { Icon, IconName } from '../../shared/ui/icon/icon';
@@ -16,7 +18,8 @@ interface MoreLink {
   icon: IconName;
   bg: string;
   fg: string;
-  adminOnly?: boolean;
+  /** Раздел для проверки доступа роли. */
+  section: AppSection;
   /** Показывать счётчик новых комментариев. */
   commentsBadge?: boolean;
 }
@@ -24,6 +27,7 @@ interface MoreLink {
 const LINKS: MoreLink[] = [
   {
     path: '/guests',
+    section: 'guests',
     label: 'nav.guests',
     hint: 'more.guestsHint',
     icon: 'users',
@@ -32,6 +36,7 @@ const LINKS: MoreLink[] = [
   },
   {
     path: '/blacklist',
+    section: 'blacklist',
     label: 'nav.blacklist',
     hint: 'more.blacklistHint',
     icon: 'ban',
@@ -40,6 +45,7 @@ const LINKS: MoreLink[] = [
   },
   {
     path: '/comments',
+    section: 'comments',
     label: 'nav.comments',
     hint: 'more.commentsHint',
     icon: 'message',
@@ -54,7 +60,7 @@ const LINKS: MoreLink[] = [
     icon: 'shield',
     bg: '#EDE9FE',
     fg: '#5B21B6',
-    adminOnly: true,
+    section: 'users',
   },
   {
     path: '/settings',
@@ -63,10 +69,11 @@ const LINKS: MoreLink[] = [
     icon: 'settings',
     bg: '#F2F4F7',
     fg: '#344054',
-    adminOnly: true,
+    section: 'settings',
   },
   {
     path: '/ui-kit',
+    section: 'settings',
     label: 'nav.uikit',
     hint: 'more.uikitHint',
     icon: 'dashboard',
@@ -78,7 +85,7 @@ const LINKS: MoreLink[] = [
 /** «Ещё» — мобильный раздел: профиль, остальные разделы, язык, выход. */
 @Component({
   selector: 'app-more',
-  imports: [RouterLink, TranslocoPipe, ButtonModule, Icon, LangSwitch, Sheet],
+  imports: [RouterLink, TranslocoPipe, ButtonModule, Icon, LangSwitch, Sheet, RoleLabelPipe],
   template: `
     <header class="shrink-0 border-b border-line-2 bg-white px-4 pt-3.5 pb-3">
       <h1 class="m-0 text-xl font-bold">{{ 'nav.more' | transloco }}</h1>
@@ -96,7 +103,8 @@ const LINKS: MoreLink[] = [
         <div class="flex min-w-0 flex-col gap-0.5">
           <span class="truncate text-base font-semibold">{{ auth.user()?.name }}</span>
           <span class="text-[13px] text-muted"
-            >{{ 'roles.' + auth.user()?.role | transloco }} · {{ auth.user()?.hotelName }}</span
+            >{{ auth.user()?.role | roleLabel: auth.user()?.roleName }} ·
+              {{ auth.user()?.hotelName }}</span
           >
         </div>
       </div>
@@ -198,7 +206,7 @@ export class MorePage {
   protected readonly comments = inject(CommentsService);
   protected readonly logoutOpen = signal(false);
   protected readonly links = computed(() =>
-    LINKS.filter((l) => !l.adminOnly || this.auth.isAdmin()),
+    LINKS.filter((l) => this.auth.can(l.section)),
   );
   protected readonly userInitials = computed(() => initials(this.auth.user()?.name ?? ''));
 

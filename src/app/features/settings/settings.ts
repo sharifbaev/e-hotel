@@ -29,6 +29,8 @@ import { DataGrid } from '../../shared/grid/data-grid';
 import { dateFilter, staffFilter } from '../../shared/grid/grid-filters';
 import { ConfirmDialog } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { Icon } from '../../shared/ui/icon/icon';
+import { RolesSection } from './roles-section';
+import { ServiceTypesSection } from './service-types-section';
 
 type SettingsTab = 'hotel' | 'rates' | 'log';
 
@@ -64,6 +66,8 @@ const LOG_TONE: Record<LogAction, { glyph: string; bg: string; fg: string }> = {
     Icon,
     SumInputDirective,
     SumPipe,
+    RolesSection,
+    ServiceTypesSection,
   ],
   templateUrl: './settings.html',
 })
@@ -147,7 +151,7 @@ export class SettingsPage {
         flex: 1.3,
         minWidth: 200,
         cellRenderer: (p: { value: string }) => avatarCell(p.value, { size: 28 }),
-        ...staffFilter<ActionLogEntry>(),
+        ...staffFilter<ActionLogEntry>(() => this.api.logAuthors()),
       },
       {
         colId: 'action',

@@ -13,6 +13,7 @@ import { AutoComplete, AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { DatePicker } from 'primeng/datepicker';
 import { InputText } from 'primeng/inputtext';
 import { Popover } from 'primeng/popover';
+import { Observable } from 'rxjs';
 import { APP_TODAY } from '../../core/api/mock-api';
 import { StaffService } from '../../core/data/staff.service';
 import { formatSum, isoToLocalDate, localDateToIso } from '../format/format';
@@ -295,8 +296,19 @@ export class StaffFloating extends FloatingBase<unknown> {
   private readonly staff = inject(StaffService);
   protected readonly text = signal('');
   protected readonly suggestions = signal<string[]>([]);
+  /** Свой список имён (например, авторы журнала); null — сотрудники из /staff. */
+  private readonly ownNames = signal<string[] | null>(null);
 
   protected override init(): void {
+    const source = (this.params as unknown as StaffFilterParams).names;
+    if (source) {
+      // При ошибке — обычный список сотрудников.
+      source().subscribe({
+        next: (list) => this.ownNames.set(list),
+        error: () => this.staff.load(),
+      });
+      return;
+    }
     // Список сотрудников — GET /staff (доступен любой роли, в отличие от /users).
     this.staff.load();
   }
@@ -307,7 +319,7 @@ export class StaffFloating extends FloatingBase<unknown> {
 
   protected search(e: AutoCompleteCompleteEvent): void {
     const q = (e.query ?? '').trim().toLowerCase();
-    const names = this.staff.allNames();
+    const names = this.ownNames() ?? this.staff.allNames();
     this.suggestions.set(q ? names.filter((n) => n.toLowerCase().includes(q)) : [...names]);
   }
 
@@ -344,7 +356,17 @@ export function dateFilter<T>(): Partial<ColDef<T>> {
   };
 }
 
-/** Столбец «Кто оформил» / «Кем добавлен»: текстовый фильтр с подсказками сотрудников. */
-export function staffFilter<T>(): Partial<ColDef<T>> {
-  return { floatingFilterComponent: StaffFloating };
+/** Источник подсказок для staffFilter (по умолчанию — сотрудники из /staff). */
+interface StaffFilterParams {
+  names?: () => Observable<string[]>;
+}
+
+/**
+ * Столбец «Кто оформил» / «Кем добавлен»: текстовый фильтр с подсказками сотрудников.
+ * names — свой список подсказок (например, GET /audit-log/authors для журнала).
+ */
+export function staffFilter<T>(names?: () => Observable<string[]>): Partial<ColDef<T>> {
+  return names
+    ? { floatingFilterComponent: StaffFloating, floatingFilterComponentParams: { names } }
+    : { floatingFilterComponent: StaffFloating };
 }

@@ -338,15 +338,14 @@
         <p-select
           inputId="e-service"
           formControlName="serviceType"
-          [options]="serviceTypes"
+          [options]="serviceTypes()"
+          optionLabel="name"
+          optionValue="id"
           [placeholder]="p() + '.form.serviceTypePlaceholder' | transloco"
           [fluid]="true"
           appendTo="body"
           [invalid]="invalid('serviceType')"
-        >
-          <ng-template #selectedItem let-t>{{ 'serviceTypes.' + t | transloco }}</ng-template>
-          <ng-template #item let-t>{{ 'serviceTypes.' + t | transloco }}</ng-template>
-        </p-select>
+        />
       </div>
     }
     @if (showReason()) {

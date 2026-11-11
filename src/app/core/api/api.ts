@@ -86,6 +86,28 @@ export function localDateTime<T extends string | null | undefined>(v: T): T {
   return v.replace(/\.\d+$/, '') as T;
 }
 
+/**
+ * Поле «только дата» (дата рождения, сроки паспорта, дата въезда) → «YYYY-MM-DD».
+ * Если сервер прислал дату со временем — время отбрасываем без перевода часового пояса,
+ * чтобы дата не съехала на день.
+ */
+export function localDate<T extends string | null | undefined>(v: T): T {
+  return (v && v.length > 10 ? v.slice(0, 10) : v) as T;
+}
+
+/** Поля документа гостя «только дата» — к виду «YYYY-MM-DD». */
+export function normDocDates<
+  T extends { birthDate?: string | null; issuedAt?: string | null; expiresAt?: string | null; entryDate?: string | null },
+>(g: T): T {
+  return {
+    ...g,
+    ...('birthDate' in g ? { birthDate: localDate(g.birthDate) } : {}),
+    ...('issuedAt' in g ? { issuedAt: localDate(g.issuedAt) } : {}),
+    ...('expiresAt' in g ? { expiresAt: localDate(g.expiresAt) } : {}),
+    ...('entryDate' in g ? { entryDate: localDate(g.entryDate) } : {}),
+  };
+}
+
 /** Сегодняшняя дата по часам компьютера, «YYYY-MM-DD». */
 export function localToday(): string {
   const d = new Date();

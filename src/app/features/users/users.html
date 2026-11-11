@@ -155,12 +155,13 @@
       <p-select
         inputId="u-role"
         formControlName="role"
-        [options]="roles"
+        [options]="roleList()"
+        optionValue="code"
         [fluid]="true"
         appendTo="body"
       >
-        <ng-template #selectedItem let-r>{{ 'roles.' + r | transloco }}</ng-template>
-        <ng-template #item let-r>{{ 'roles.' + r | transloco }}</ng-template>
+        <ng-template #selectedItem let-r>{{ r?.code | roleLabel: r?.name }}</ng-template>
+        <ng-template #item let-r>{{ r.code | roleLabel: r.name }}</ng-template>
       </p-select>
     </div>
     <div class="field">
@@ -301,9 +302,9 @@
           <th scope="col" class="px-5 py-2.5 text-left font-semibold">
             {{ 'users.section' | transloco }}
           </th>
-          @for (r of roles; track r) {
+          @for (r of roleList(); track r.code) {
             <th scope="col" class="px-2 py-2.5 text-center font-semibold">
-              {{ 'roles.' + r | transloco }}
+              {{ r.code | roleLabel: r.name }}
             </th>
           }
         </tr>
@@ -321,7 +322,7 @@
                   [style.background]="c.bg"
                   [style.color]="c.fg"
                   role="img"
-                  [attr.aria-label]="('roles.' + c.role | transloco) + ': ' + (c.key | transloco)"
+                  [attr.aria-label]="(c.role | roleLabel) + ': ' + (c.key | transloco)"
                 >
                   <app-icon [name]="c.icon" [size]="16" [stroke]="2.2" />
                 </span>
@@ -332,7 +333,7 @@
           @for (s of [0, 1, 2, 3, 4]; track s) {
             <tr class="border-b border-line-2">
               <td class="px-5 py-3"><div class="sk h-3 w-40"></div></td>
-              @for (r of roles; track r) {
+              @for (r of roleList(); track r.code) {
                 <td class="px-2 py-2 text-center">
                   <div class="sk mx-auto size-7 rounded-lg"></div>
                 </td>
@@ -350,13 +351,6 @@
         aria-hidden="true"
         ><app-icon name="check" [size]="13" [stroke]="2.4" /></span
       >{{ 'users.access.full' | transloco }}</span
-    >
-    <span class="flex items-center gap-1.5"
-      ><span
-        class="inline-flex size-5 items-center justify-center rounded-md bg-[#DCE7FD] text-[#1E3A8A]"
-        aria-hidden="true"
-        ><app-icon name="eye" [size]="13" [stroke]="2.2" /></span
-      >{{ 'users.access.view' | transloco }}</span
     >
     <span class="flex items-center gap-1.5"
       ><span

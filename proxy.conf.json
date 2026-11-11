@@ -2,7 +2,10 @@
   "/api/v1": {
     "target": "https://3-26-35-169.sslip.io",
     "secure": true,
-    "changeOrigin": true
+    "changeOrigin": true,
+    "headers": {
+      "Origin": "https://3-26-35-169.sslip.io"
+    }
   },
   "/api": {
     "target": "http://localhost:3000",

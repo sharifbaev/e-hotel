@@ -55,7 +55,8 @@
       "hasGuests": "Xonada mehmonlar yashamoqda.",
       "invalidStatus": "Xonaning joriy holatida bu amal mumkin emas.",
       "unavailable": "Xona tozalashda yoki ta’mirda.",
-      "full": "Xonada joy yetarli emas."
+      "full": "Xonada joy yetarli emas.",
+      "notFound": "Xona topilmadi."
     },
     "settings": {
       "categoryExists": "Bunday toifa allaqachon mavjud.",
@@ -76,6 +77,16 @@
     },
     "comments": {
       "qrDisabled": "Bu xona uchun izohlar o‘chirilgan."
+    },
+    "roles": {
+      "exists": "Bunday nomli rol allaqachon bor.",
+      "system": "Tizim rolini o‘chirib yoki qayta nomlab bo‘lmaydi.",
+      "inUse": "Rolda xodimlar bor — avval ularning rolini o‘zgartiring.",
+      "notFound": "Rol topilmadi."
+    },
+    "serviceTypes": {
+      "exists": "Bunday xizmat turi allaqachon bor.",
+      "notFound": "Xizmat turi topilmadi."
     }
   },
   "nav": {
@@ -275,7 +286,11 @@
       "receiptNoSumTitle": "Summani kiriting",
       "receiptNoSumText": "Chek yaratish uchun yakuniy summani kiriting.",
       "receiptFailTitle": "Chekni shakllantirib bo‘lmadi",
-      "receiptFailText": "Chek shabloni topilmadi yoki buzilgan (public/templates/fiscal-receipt.docx)."
+      "receiptFailText": "Chek shabloni topilmadi yoki buzilgan (public/templates/fiscal-receipt.docx).",
+      "deletedTitle": "Xona o‘chirildi",
+      "deletedText": "{{room}}-xona o‘chirildi.",
+      "deleteBusyTitle": "Xona band",
+      "deleteBusyText": "{{room}}-xonada mehmonlar yashamoqda — avval ularni chiqaring."
     },
     "editShort": "Tahrirlash",
     "editAria": "{{room}}-xonani tahrirlash",
@@ -301,7 +316,14 @@
     "addGuest": "Mehmon qo‘shish",
     "roomTotal": "Xona bo‘yicha jami",
     "receiptShow": "Chekni ko‘rsatish: yuklab olish yoki chop etish",
-    "receiptShowShort": "Ko‘rsatish"
+    "receiptShowShort": "Ko‘rsatish",
+    "deleteShort": "O‘chirish",
+    "deleteAria": "{{room}}-xonani o‘chirish",
+    "deleteBusyHint": "O‘chirib bo‘lmaydi: xonada mehmonlar yashamoqda",
+    "confirmDelete": {
+      "title": "Xona o‘chirilsinmi?",
+      "text": "{{room}}-xona xonalar fondidan o‘chiriladi."
+    }
   },
   "pay": {
     "paid": "To‘langan",
@@ -634,7 +656,7 @@
   },
   "users": {
     "title": "Foydalanuvchilar",
-    "adminOnly": "Faqat administrator uchun",
+    "adminOnly": "Faqat egasi uchun",
     "subtitle": "Xodimlarning hisob yozuvlari va rollari",
     "block": "Bloklash",
     "unblock": "Blokdan chiqarish",
@@ -658,14 +680,19 @@
     "rolesSubtitle": "Har bir rol nimani ko‘radi va nima qila oladi",
     "section": "Bo‘lim",
     "sections": {
-      "dashboard": "Boshqaruv paneli va tushum",
+      "dashboard": "Boshqaruv paneli",
       "registration": "Mehmonlarni ro‘yxatga olish va chiqarish",
-      "rooms": "Xonalar va tozalash holatlari",
+      "rooms": "Xonalar",
       "archive": "Mehmonlar arxivi",
       "expenses": "Xarajatlar",
       "admin": "Foydalanuvchilar va sozlamalar",
-      "book": "Mehmonlar kitobi va joylashtirish",
-      "blacklist": "Qora ro‘yxat"
+      "book": "Kitob",
+      "blacklist": "Qora ro‘yxat",
+      "guests": "Mehmonlar arxivi",
+      "payments": "To‘lovlar va xarajatlar",
+      "comments": "Izohlar",
+      "users": "Foydalanuvchilar",
+      "settings": "Sozlamalar"
     },
     "access": {
       "full": "to‘liq kirish",
@@ -729,7 +756,7 @@
     "subtitle": "Mehmonxona parametrlari, xona toifalari va amallar jurnali",
     "tabs": {
       "hotel": "Mehmonxona",
-      "rates": "Xonalar va tariflar",
+      "rates": "Ma’lumotnomalar",
       "log": "Amallar jurnali"
     },
     "hotel": {
@@ -807,6 +834,62 @@
       "catUpdatedText": "«{{name}}» toifasi yangilandi.",
       "catDeletedTitle": "Toifa o‘chirildi",
       "catDeletedText": "«{{name}}» endi ro‘yxatda yo‘q."
+    },
+    "roles": {
+      "title": "Xodimlar rollari",
+      "subtitle": "Har bir rol menyuning qaysi bo‘limlarini ko‘radi. Egasi, administrator va buxgalter — tizim rollari.",
+      "add": "Rol qo‘shish",
+      "addTitle": "Yangi rol",
+      "editTitle": "Rolni o‘zgartirish",
+      "system": "tizim",
+      "allSections": "Barcha bo‘limlar",
+      "col": {
+        "name": "Rol",
+        "sections": "Ruxsat etilgan bo‘limlar"
+      },
+      "form": {
+        "name": "Rol nomi",
+        "namePlaceholder": "Masalan: Qabulxona",
+        "sections": "Ruxsat etilgan menyu bo‘limlari",
+        "systemHint": "Tizim rolini qayta nomlab bo‘lmaydi"
+      },
+      "confirmTitle": "Rol o‘chirilsinmi?",
+      "confirmText": "«{{name}}» roli o‘chiriladi. Bu roldagi xodimlarni avval boshqa rolga o‘tkazing.",
+      "toast": {
+        "required": "Nom va kamida bitta bo‘limni belgilang.",
+        "addedTitle": "Rol qo‘shildi",
+        "addedText": "«{{name}}» roli yaratildi.",
+        "updatedText": "«{{name}}» roli saqlandi.",
+        "deletedTitle": "Rol o‘chirildi",
+        "deletedText": "«{{name}}» roli o‘chirildi.",
+        "exists": "«{{name}}» roli allaqachon bor."
+      }
+    },
+    "serviceTypes": {
+      "title": "Qo‘shimcha xizmat turlari",
+      "subtitle": "«Qo‘shimcha xizmatlar» bo‘limidagi «Xizmat turi» maydoni uchun ro‘yxat. «Boshqa» doim mavjud.",
+      "add": "Tur qo‘shish",
+      "addTitle": "Yangi xizmat turi",
+      "editTitle": "Xizmat turini o‘zgartirish",
+      "empty": "Birinchi xizmat turini qo‘shing.",
+      "col": {
+        "name": "Nomi"
+      },
+      "form": {
+        "name": "Nomi",
+        "namePlaceholder": "Masalan: Transfer"
+      },
+      "confirmTitle": "Xizmat turi o‘chirilsinmi?",
+      "confirmText": "«{{name}}» ro‘yxatdan olib tashlanadi. Eski yozuvlarda nomi saqlanib qoladi.",
+      "toast": {
+        "required": "Nomini kiriting.",
+        "addedTitle": "Xizmat turi qo‘shildi",
+        "addedText": "«{{name}}» ro‘yxatga qo‘shildi.",
+        "updatedText": "«{{name}}» saqlandi.",
+        "deletedTitle": "Xizmat turi o‘chirildi",
+        "deletedText": "«{{name}}» ro‘yxatdan o‘chirildi.",
+        "exists": "«{{name}}» ro‘yxatda allaqachon bor."
+      }
     }
   },
   "more": {

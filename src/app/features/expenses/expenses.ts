@@ -32,7 +32,8 @@ import { ExtraServicesService } from '../../core/data/extra-services.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { StaffService } from '../../core/data/staff.service';
-import { Expense, ExpenseDraft, LedgerKind, SERVICE_TYPES, ServiceType } from '../../core/models';
+import { ServiceTypesService } from '../../core/data/service-types.service';
+import { Expense, ExpenseDraft, LedgerKind, ServiceTypeItem } from '../../core/models';
 import { NotifyService } from '../../core/notify/notify.service';
 import {
   formatDateTime,
@@ -120,7 +121,19 @@ export class ExpensesPage {
   protected readonly cfg = computed(() => KIND_CFG[this.kind()]);
   /** Префикс ключей i18n: expenses / services / debts. */
   protected readonly p = computed(() => this.cfg().i18n);
-  protected readonly serviceTypes = SERVICE_TYPES;
+  /** Виды услуг из справочника «Настройки → Справочники» + «Другое» (свой текст). */
+  private readonly serviceTypesApi = inject(ServiceTypesService);
+  private readonly serviceTypesRes = rxResource({
+    params: () => this.kind() === 'service' || null,
+    stream: () => this.serviceTypesApi.options(),
+  });
+  protected readonly serviceTypes = computed<{ id: number | 'other'; name: string }[]>(() => {
+    this.lang.current();
+    const list: ServiceTypeItem[] = this.serviceTypesRes.hasValue()
+      ? this.serviceTypesRes.value()
+      : [];
+    return [...list, { id: 'other', name: this.transloco.translate('serviceTypes.other') }];
+  });
 
   private readonly notify = inject(NotifyService);
   private readonly transloco = inject(TranslocoService);
@@ -157,7 +170,7 @@ export class ExpensesPage {
   protected readonly form = this.fb.group({
     // Обязательность причины / вида услуги / ФИО зависит от вкладки — см. missing().
     reason: [''],
-    serviceType: this.fb.control<ServiceType | null>(null),
+    serviceType: this.fb.control<number | 'other' | null>(null),
     debtor: [''],
     sum: this.fb.control<number | null>(null, [Validators.required, Validators.min(1)]),
     date: this.fb.control<Date | null>(null, Validators.required),
@@ -243,6 +256,10 @@ export class ExpensesPage {
   /** Причина для показа: у сервисов из списка — название вида услуги. */
   protected reasonOf(e: Expense): string {
     this.lang.current();
+    if (e.serviceTypeName) {
+      return e.serviceTypeName;
+    }
+    // Записи старого формата (код вида услуги вместо справочника).
     return e.serviceType && e.serviceType !== 'other'
       ? this.transloco.translate(`serviceTypes.${e.serviceType}`)
       : e.reason;
@@ -318,7 +335,7 @@ export class ExpensesPage {
     this.tried.set(false);
     this.form.reset({
       reason: e.reason,
-      serviceType: e.serviceType ?? null,
+      serviceType: e.serviceTypeId ?? (e.serviceTypeName || e.serviceType ? 'other' : null),
       debtor: e.debtor ?? '',
       sum: e.sum,
       date: isoToLocalDate(e.date),
@@ -376,7 +393,9 @@ export class ExpensesPage {
       sum: v.sum ?? 0,
       date: localDateTimeSecToIso(v.date) ?? this.today,
       who: v.who,
-      ...(kind === 'service' && v.serviceType ? { serviceType: v.serviceType } : {}),
+      ...(kind === 'service' && v.serviceType
+        ? { serviceTypeId: v.serviceType === 'other' ? null : v.serviceType }
+        : {}),
       ...(kind === 'debt' ? { debtor: v.debtor.trim() } : {}),
     };
     const id = this.editId();

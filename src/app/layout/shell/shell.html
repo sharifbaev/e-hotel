@@ -32,7 +32,7 @@
       </div>
 
       <nav [attr.aria-label]="'nav.main' | transloco" class="flex flex-col gap-0.5">
-        @for (item of mainNav; track item.path) {
+        @for (item of mainNav(); track item.path) {
           <a
             class="nav-link"
             [routerLink]="item.path"
@@ -101,7 +101,7 @@
         @if (!collapsed()) {
           <div class="flex min-w-0 flex-col">
             <span class="truncate text-sm font-semibold">{{ auth.user()?.name }}</span>
-            <span class="text-xs text-muted">{{ 'roles.' + auth.user()?.role | transloco }}</span>
+            <span class="truncate text-xs text-muted">{{ auth.user()?.role | roleLabel: auth.user()?.roleName }}</span>
           </div>
         }
       </div>
@@ -161,9 +161,10 @@
     </main>
     <nav
       [attr.aria-label]="'nav.main' | transloco"
-      class="grid h-16 shrink-0 grid-cols-5 border-t border-line bg-white pb-[env(safe-area-inset-bottom)]"
+      [style.grid-template-columns]="'repeat(' + mobileNav().length + ', minmax(0, 1fr))'"
+      class="grid h-16 shrink-0 border-t border-line bg-white pb-[env(safe-area-inset-bottom)]"
     >
-      @for (item of mobileNav; track item.path) {
+      @for (item of mobileNav(); track item.path) {
         <a
           class="tab-link tap"
           [routerLink]="item.path"

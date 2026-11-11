@@ -3,7 +3,13 @@ import { Service, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable, finalize, map, shareReplay } from 'rxjs';
 import { API_URL, SKIP_AUTH_RETRY } from '../api/api';
-import { CurrentUser } from '../models';
+import {
+  APP_SECTIONS,
+  AppSection,
+  CurrentUser,
+  DEFAULT_ROLE_SECTIONS,
+  SystemRoleCode,
+} from '../models';
 
 const STORAGE_KEY = 'hotelos.session';
 
@@ -45,6 +51,34 @@ export class AuthService {
     const role = this.user()?.role;
     return role === 'owner' || role === 'admin';
   });
+
+  /**
+   * Разделы меню, доступные пользователю: с сервера (CurrentUser.sections),
+   * иначе — доступ системной роли по умолчанию. Владельцу — всё.
+   */
+  readonly sections = computed<AppSection[]>(() => {
+    const user = this.user();
+    if (!user) {
+      return [];
+    }
+    if (user.role === 'owner') {
+      return APP_SECTIONS;
+    }
+    if (user.sections) {
+      return user.sections.filter((s) => APP_SECTIONS.includes(s));
+    }
+    return DEFAULT_ROLE_SECTIONS[user.role as SystemRoleCode] ?? [];
+  });
+
+  can(section: AppSection): boolean {
+    return this.sections().includes(section);
+  }
+
+  /** Первый доступный раздел — куда вести после входа и при запрете. */
+  homePath(): string {
+    const first = APP_SECTIONS.find((s) => this.can(s));
+    return first ? `/${first}` : '/more';
+  }
 
   accessToken(): string | null {
     return this.session()?.accessToken ?? null;

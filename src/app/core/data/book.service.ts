@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, concatMap, from, map, of, tap, toArray } from 'rxjs';
-import { API_URL, localDateTime } from '../api/api';
+import { API_URL, localDateTime, normDocDates } from '../api/api';
 import { APP_TODAY } from '../api/mock-api';
 import { FiscalReceiptData, buildStayReceipt } from '../docs/fiscal-receipt-doc';
 import { BookEntry, CheckoutOptions, GuestRegistration, Room, RoomGuest } from '../models';
@@ -34,7 +34,11 @@ export interface ReceiptResponse {
 const normEntry = (e: BookEntry): BookEntry => ({
   ...e,
   receipt: e.receipt ?? null,
-  reg: { ...e.reg, checkin: localDateTime(e.reg.checkin), checkout: localDateTime(e.reg.checkout) },
+  reg: {
+    ...normDocDates(e.reg),
+    checkin: localDateTime(e.reg.checkin),
+    checkout: localDateTime(e.reg.checkout),
+  },
 });
 
 /** Регистрация + бланк чека при заселении (v1.1; сервер v1.0 лишнее поле игнорирует). */

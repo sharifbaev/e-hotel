@@ -10,9 +10,12 @@ const norm = (e: Expense): Expense => ({
   date: localDateTime(e.date),
 });
 
-/** Тело запроса ExtraServiceDraft: вид услуги, причина (для 'other'), сумма, дата-время, кто оформил. */
+/**
+ * Тело запроса ExtraServiceDraft (v1.2): вид услуги из справочника /service-types
+ * (serviceTypeId; null — «Другое», текст в reason), сумма, дата-время, кто оформил.
+ */
 const body = (d: ExpenseDraft) => ({
-  serviceType: d.serviceType,
+  serviceTypeId: d.serviceTypeId ?? null,
   reason: d.reason,
   sum: d.sum,
   date: d.date,

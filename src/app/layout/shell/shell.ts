@@ -5,13 +5,15 @@ import { Popover } from 'primeng/popover';
 import { Tooltip } from 'primeng/tooltip';
 import { AuthService } from '../../core/auth/auth.service';
 import { CommentsService } from '../../core/data/comments.service';
+import { RolesService } from '../../core/data/roles.service';
 import { StaffService } from '../../core/data/staff.service';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { initials } from '../../shared/format/format';
 import { ChangePasswordDialog } from '../../shared/ui/change-password/change-password-dialog';
 import { Icon } from '../../shared/ui/icon/icon';
 import { LangSwitch } from '../../shared/ui/lang-switch/lang-switch';
-import { ADMIN_NAV, MAIN_NAV, MOBILE_NAV } from '../nav-items';
+import { ADMIN_NAV, MAIN_NAV, MOBILE_NAV, NavItem } from '../nav-items';
+import { RoleLabelPipe } from '../../shared/ui/status/role-label.pipe';
 
 const SIDEBAR_KEY = 'hotelos.sidebarCollapsed';
 
@@ -36,6 +38,7 @@ function readCollapsed(): boolean {
     Icon,
     LangSwitch,
     ChangePasswordDialog,
+    RoleLabelPipe,
   ],
   templateUrl: './shell.html',
   styleUrl: './shell.scss',
@@ -47,9 +50,12 @@ export class Shell {
   /** Счётчик новых комментариев в меню обновляется сам. */
   protected readonly comments = inject(CommentsService);
 
-  protected readonly mainNav = MAIN_NAV;
-  protected readonly mobileNav = MOBILE_NAV;
-  protected readonly adminNav = computed(() => (this.auth.isAdmin() ? ADMIN_NAV : []));
+  /** Пункты меню — только разделы, доступные роли пользователя. */
+  private readonly allowed = (items: NavItem[]) =>
+    items.filter((i) => !i.section || this.auth.can(i.section));
+  protected readonly mainNav = computed(() => this.allowed(MAIN_NAV));
+  protected readonly mobileNav = computed(() => this.allowed(MOBILE_NAV));
+  protected readonly adminNav = computed(() => this.allowed(ADMIN_NAV));
   protected readonly userInitials = computed(() => initials(this.auth.user()?.name ?? ''));
 
   /** Сайдбар свёрнут: только логотип и иконки (запоминается в браузере). */
@@ -66,9 +72,14 @@ export class Shell {
   }
 
   constructor() {
-    this.comments.watch(inject(DestroyRef));
+    // Счётчик новых комментариев — только если раздел доступен роли.
+    if (this.auth.can('comments')) {
+      this.comments.watch(inject(DestroyRef));
+    }
     // Список сотрудников: ФИО для чеков и «Кто оформил».
     inject(StaffService).load();
+    // Роли: подписи созданных пользователем ролей.
+    inject(RolesService).load();
   }
 
   protected logout(): void {

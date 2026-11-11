@@ -1,0 +1,966 @@
+# HotelOS (e-hotel) — OpenAPI v1.2 QO‘SHIMCHA. Faqat v1.1 dan keyingi o‘zgarishlar.
+# openapi.yaml va openapi-v1.1-qoshimcha.yaml bilan bir papkada saqlang.
+openapi: 3.1.0
+info:
+  title: HotelOS (e-hotel) API — v1.2 qo‘shimcha
+  version: '1.2'
+  description: 'FAQAT v1.1 (openapi-v1.1-qoshimcha.yaml) dan keyin qo‘shilgan yoki o‘zgargan yo‘llar va sxemalar. Sana: 10.11.2026.
+
+
+    Qanday o‘qish: bu fayldagi yo‘l yoki sxema oldingi fayllardagi xuddi shu nomli yo‘l/sxemani TO‘LIQ almashtiradi; bu yerda
+    yo‘q narsalar o‘zgarmagan. «YANGI» — yangi narsa, «O‘ZGARDI» — o‘zgargan. Error sxemasi — openapi.yaml dan.
+
+
+    Asosiy o‘zgarishlar: 3 ta tizim roli (owner, admin, accountant) + rollar CRUD (/roles) va bo‘limlar bo‘yicha kirish; qo‘shimcha
+    xizmat turlari ma’lumotnomasi (/service-types); xonani o‘chirish (DELETE /rooms/{number}). Batafsil — hotelos-api-v1.2-qoshimcha.pdf.'
+servers:
+- url: /api/v1
+security:
+- bearer: []
+tags:
+- name: roles
+  description: YANGI. Rollar va menyu bo‘limlariga kirish («Sozlamalar → Ma’lumotnomalar»).
+- name: service-types
+  description: YANGI. Qo‘shimcha xizmat turlari ma’lumotnomasi («Sozlamalar → Ma’lumotnomalar»).
+- name: services
+- name: rooms
+- name: auth
+- name: users
+paths:
+  /roles:
+    get:
+      tags:
+      - roles
+      summary: YANGI. Rollar ro‘yxati
+      operationId: getRoles
+      description: 'Kirish: tizimga kirgan har qanday foydalanuvchi (rol nomlarini ko‘rsatish uchun).
+
+
+        - Tizim rollari (owner, admin, accountant) doim ro‘yxatda, birinchi navbatda; keyin yaratilganlari (id bo‘yicha).
+
+        - owner uchun sections — doim barcha bo‘limlar.
+
+
+        Front: `core/data/roles.service.ts → list()`. Front 404 olsa, vaqtincha 3 ta tizim rolini o‘zi ko‘rsatadi.'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+    post:
+      tags:
+      - roles
+      summary: YANGI. Rol yaratish
+      operationId: postRole
+      description: 'Kirish: settings bo‘limi.
+
+
+        - name — trim dan keyin bo‘sh emas, takrorlanmas (katta-kichik harfsiz) → aks holda 409 roles.exists.
+
+        - sections — kamida 1 ta, faqat AppSection qiymatlari (dublikatlar olib tashlanadi).
+
+        - code ni server o‘zi beradi (masalan `role_12`), keyin o‘zgarmaydi. system = false.
+
+        - Harakatlar jurnaliga yozish shart emas.
+
+
+        Front: `roles.service.ts → create()` («Sozlamalar → Ma’lumotnomalar → Xodimlar rollari»)'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '409':
+          description: roles.exists
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed — name bo‘sh, sections bo‘sh yoki noma’lum qiymat
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /roles/{id}:
+    put:
+      tags:
+      - roles
+      summary: YANGI. Rolni o‘zgartirish
+      operationId: putRole
+      description: 'Kirish: settings bo‘limi.
+
+
+        - Oddiy rol: name va sections o‘zgaradi.
+
+        - Tizim roli admin / accountant: faqat sections o‘zgaradi, name e’tiborsiz qoldiriladi (front nomni tarjimadan oladi).
+
+        - owner ni o‘zgartirib bo‘lmaydi → 409 roles.system.
+
+        - O‘zgarish shu roldagi xodimlarga keyingi /auth/me yoki tokenni yangilashda ta’sir qiladi; ruxsatni server har so‘rovda
+        bazadagi rol bo‘yicha tekshiradi.
+
+
+        Front: `roles.service.ts → update()`'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+        '404':
+          description: roles.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '409':
+          description: roles.exists | roles.system
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+    delete:
+      tags:
+      - roles
+      summary: YANGI. Rolni o‘chirish
+      operationId: deleteRole
+      description: 'Kirish: settings bo‘limi.
+
+
+        - Tizim rolini o‘chirib bo‘lmaydi → 409 roles.system.
+
+        - Rolda xodim(lar) bo‘lsa (bloklanganlar ham) → 409 roles.inUse.
+
+
+        Front: `roles.service.ts → remove()`'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '204':
+          description: O‘chirildi
+        '404':
+          description: roles.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '409':
+          description: roles.system | roles.inUse
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /service-types:
+    get:
+      tags:
+      - service-types
+      summary: YANGI. Qo‘shimcha xizmat turlari (ma’lumotnoma)
+      operationId: getServiceTypes
+      description: 'Kirish: payments yoki settings bo‘limi.
+
+
+        - Nom bo‘yicha alifbo tartibida.
+
+        - «Boshqa» bu ro‘yxatda YO‘Q — uni front o‘zi qo‘shadi (serviceTypeId = null).
+
+
+        Front: `core/data/service-types.service.ts → list()/options()`'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceTypeItem'
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+    post:
+      tags:
+      - service-types
+      summary: YANGI. Xizmat turini qo‘shish
+      operationId: postServiceType
+      description: 'Kirish: settings bo‘limi.
+
+
+        - name trim, bo‘sh emas, takrorlanmas (katta-kichik harfsiz) → 409 serviceTypes.exists.
+
+
+        Front: `service-types.service.ts → save(name, null)`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceTypeDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceTypeItem'
+        '409':
+          description: serviceTypes.exists
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /service-types/{id}:
+    put:
+      tags:
+      - service-types
+      summary: YANGI. Xizmat turini o‘zgartirish
+      operationId: putServiceType
+      description: 'Kirish: settings bo‘limi.
+
+
+        - Eski qo‘shimcha xizmat yozuvlaridagi serviceTypeName O‘ZGARMAYDI (yozish paytidagi nom saqlanadi).
+
+
+        Front: `service-types.service.ts → save(name, id)`'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceTypeDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceTypeItem'
+        '404':
+          description: serviceTypes.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '409':
+          description: serviceTypes.exists
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+    delete:
+      tags:
+      - service-types
+      summary: YANGI. Xizmat turini o‘chirish
+      operationId: deleteServiceType
+      description: 'Kirish: settings bo‘limi.
+
+
+        - Ishlatilgan bo‘lsa ham o‘chiriladi: eski yozuvlarda serviceTypeId = null bo‘ladi, serviceTypeName saqlanib qoladi.
+
+
+        Front: `service-types.service.ts → remove()`'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '204':
+          description: O‘chirildi
+        '404':
+          description: serviceTypes.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /extra-services:
+    get:
+      tags:
+      - services
+      summary: 'Qo‘shimcha xizmatlar ro‘yxati (O‘ZGARDI: serviceTypeId, serviceTypeName)'
+      operationId: getServices
+      description: 'Kirish: payments bo‘limi. Qolgani v1.1 dagidek (from/to, tartib).
+
+
+        Front: `core/data/extra-services.service.ts → list()`'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExtraService'
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+    post:
+      tags:
+      - services
+      summary: Qo‘shimcha xizmat qo‘shish (O‘ZGARDI)
+      operationId: postServices
+      description: 'Kirish: payments bo‘limi.
+
+
+        - O‘ZGARDI: serviceType (enum) o‘rniga serviceTypeId.
+
+        - serviceTypeId = son → /service-types da bo‘lishi shart (aks holda 422); serviceTypeName = shu turning hozirgi nomi
+        (serverda saqlanadi), reason = "".
+
+        - serviceTypeId = null → «Boshqa»: reason majburiy (trim dan keyin bo‘sh emas), serviceTypeName = "".
+
+        - sum > 0, date, who — v1.1 dagidek.
+
+
+        Front: `extra-services.service.ts → create()`'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraServiceDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraService'
+        '422':
+          description: validation.failed — serviceTypeId topilmadi; null uchun reason yo‘q; sum ≤ 0; date yo‘q
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /extra-services/{id}:
+    put:
+      tags:
+      - services
+      summary: Qo‘shimcha xizmatni o‘zgartirish (O‘ZGARDI)
+      operationId: putServicesId
+      description: 'Kirish: payments bo‘limi. Qoidalar POST dagidek; serviceTypeName qayta yoziladi (yangi tanlangan tur nomi).
+
+
+        Front: `extra-services.service.ts → update()`'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtraServiceDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtraService'
+        '404':
+          description: common.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /rooms/{number}:
+    delete:
+      tags:
+      - rooms
+      summary: YANGI. Xonani o‘chirish
+      operationId: deleteRoom
+      description: 'Kirish: rooms bo‘limi.
+
+
+        - Xonada yashayotgan mehmon bo‘lsa (status = busy yoki guests bo‘sh emas) → 409 rooms.hasGuests.
+
+        - Xona bilan birga uning QR holati (/qr/{room}) ham o‘chiriladi.
+
+        - Arxiv, kitob tarixi, izohlar, cheklar o‘chirilMAYdi — ularda xona raqami matn sifatida qoladi.
+
+        - Kategoriya bo‘yicha xonalar soni (CategoryResponse.rooms) kamayadi.
+
+        - Harakatlar jurnaliga yozish tavsiya etiladi (action: block, params: {room}).
+
+
+        Front: `core/data/rooms.service.ts → remove()` («Xonalar» kartochkasidagi savat tugmasi)'
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+        example: '305'
+      responses:
+        '204':
+          description: O‘chirildi
+        '404':
+          description: rooms.notFound
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '409':
+          description: rooms.hasGuests
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /auth/me:
+    get:
+      tags:
+      - auth
+      summary: 'Joriy foydalanuvchi (O‘ZGARDI: roleName, sections)'
+      operationId: getMe
+      description: 'O‘ZGARDI: CurrentUser ga roleName va sections qo‘shildi. Xuddi shu CurrentUser POST /auth/login javobidagi
+        `user` da ham qaytariladi.
+
+
+        Front menyuni sections bo‘yicha ko‘rsatadi (yo‘q bo‘lsa — tizim rolining standart ruxsati).
+
+
+        Front: `core/auth/auth.service.ts → login()/loadMe()`'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+  /users:
+    get:
+      tags:
+      - users
+      summary: 'Xodimlar (O‘ZGARDI: role — string, roleName)'
+      operationId: getUsers
+      description: 'Kirish: users bo‘limi. StaffUser.role endi enum emas — /roles dagi code.'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StaffUser'
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+    post:
+      tags:
+      - users
+      summary: 'Xodim qo‘shish (O‘ZGARDI: role — /roles dagi code)'
+      operationId: postUser
+      description: 'Kirish: users bo‘limi.
+
+
+        - role — mavjud rol code i bo‘lishi shart, aks holda 422 (fields.role).
+
+        - Qolgani v1.0 dagidek. PUT /users/{id} ham xuddi shunday.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffUserDraft'
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffUser'
+        '409':
+          description: users.loginTaken
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '422':
+          description: validation.failed
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '401':
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+        '403':
+          description: 'auth.forbidden — foydalanuvchi rolida bu bo‘lim yo‘q (qarang: «Bo‘limlar bo‘yicha kirish»)'
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Error
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AppSection:
+      type: string
+      enum:
+      - dashboard
+      - rooms
+      - book
+      - guests
+      - blacklist
+      - payments
+      - comments
+      - users
+      - settings
+      description: 'YANGI. Menyu bo‘limlari: boshqaruv paneli, xonalar, kitob, mehmonlar arxivi, qora ro‘yxat, to‘lovlar va
+        xarajatlar, izohlar, foydalanuvchilar, sozlamalar.'
+    RoleCode:
+      type: string
+      example: admin
+      description: 'O‘ZGARDI: endi enum emas. Tizim rollari: owner, admin, accountant; yaratilganlari — server bergan code
+        (masalan role_12). reception va housekeeper OLIB TASHLANDI (migratsiya — PDF da).'
+    Role:
+      type: object
+      description: YANGI. Xodim roli.
+      properties:
+        id:
+          type: integer
+        code:
+          $ref: '#/components/schemas/RoleCode'
+        name:
+          type: string
+          description: Tizim rollari uchun ham to‘ldiring (masalan «Administrator»), front ularni tarjimadan ko‘rsatadi
+        system:
+          type: boolean
+          description: 'true — owner/admin/accountant: o‘chirib, qayta nomlab bo‘lmaydi'
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppSection'
+          description: Ruxsat etilgan bo‘limlar; owner — doim hammasi
+      required:
+      - id
+      - code
+      - name
+      - system
+      - sections
+      example:
+        id: 4
+        code: role_4
+        name: Qabulxona
+        system: false
+        sections:
+        - rooms
+        - book
+        - guests
+    RoleDraft:
+      type: object
+      description: YANGI.
+      properties:
+        name:
+          type: string
+        sections:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/AppSection'
+      required:
+      - name
+      - sections
+    ServiceTypeItem:
+      type: object
+      description: YANGI. Qo‘shimcha xizmat turi.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required:
+      - id
+      - name
+      example:
+        id: 1
+        name: Nonushta
+    ServiceTypeDraft:
+      type: object
+      description: YANGI.
+      properties:
+        name:
+          type: string
+          minLength: 1
+      required:
+      - name
+    ExtraService:
+      type: object
+      description: 'O‘ZGARDI (v1.2): serviceType enum → serviceTypeId + serviceTypeName.'
+      properties:
+        id:
+          type: integer
+        serviceTypeId:
+          type:
+          - integer
+          - 'null'
+          description: null — «Boshqa» yoki turi o‘chirilgan
+        serviceTypeName:
+          type: string
+          description: Yozish paytidagi tur nomi; «Boshqa» uchun ""
+        reason:
+          type: string
+          description: «Boshqa» uchun tavsif; aks holda ""
+        sum:
+          type: integer
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-11-10T14:05:09'
+        who:
+          type: string
+      required:
+      - id
+      - serviceTypeId
+      - serviceTypeName
+      - reason
+      - sum
+      - date
+      - who
+      example:
+        id: 4
+        serviceTypeId: null
+        serviceTypeName: ''
+        reason: Aeroportdan transfer
+        sum: 350000
+        date: '2026-10-21T13:08:56'
+        who: Sherzod Nazarov
+    ExtraServiceDraft:
+      type: object
+      description: O‘ZGARDI (v1.2).
+      properties:
+        serviceTypeId:
+          type:
+          - integer
+          - 'null'
+        reason:
+          type: string
+          description: serviceTypeId = null bo‘lsa majburiy
+        sum:
+          type: integer
+        date:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-11-10T14:05:09'
+        who:
+          type: string
+      required:
+      - serviceTypeId
+      - reason
+      - sum
+      - date
+      - who
+    CurrentUser:
+      type: object
+      description: 'O‘ZGARDI (v1.2): roleName, sections.'
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        login:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        roleName:
+          type: string
+          description: YANGI. Rol nomi
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppSection'
+          description: YANGI. Foydalanuvchiga ruxsat etilgan bo‘limlar
+        hotelName:
+          type: string
+        hotelCity:
+          type: string
+        mustChangePassword:
+          type: boolean
+      required:
+      - id
+      - name
+      - login
+      - role
+      - roleName
+      - sections
+      - hotelName
+      - hotelCity
+    StaffUser:
+      type: object
+      description: 'O‘ZGARDI (v1.2): role — string, roleName qo‘shildi. Qolgan maydonlar v1.1 dagidek.'
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        login:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        roleName:
+          type: string
+          description: YANGI
+        phone:
+          type: string
+        active:
+          type: boolean
+        lastLogin:
+          type:
+          - string
+          - 'null'
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$
+          example: '2026-11-10T14:05:09'
+        online:
+          type: boolean
+      required:
+      - id
+      - name
+      - login
+      - role
+      - roleName
+      - phone
+      - active
+      - lastLogin
+      - online
+    StaffUserDraft:
+      type: object
+      description: 'O‘ZGARDI (v1.2): role — mavjud rol code i.'
+      properties:
+        name:
+          type: string
+        login:
+          type: string
+          pattern: ^[a-z0-9._-]{3,32}$
+        role:
+          $ref: '#/components/schemas/RoleCode'
+        phone:
+          type: string
+        active:
+          type: boolean
+        password:
+          type: string
+      required:
+      - name
+      - login
+      - role
+      - phone
+      - active

@@ -1,7 +1,8 @@
 import { Component, computed, input } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { PaymentStatus, RoleCode, RoomStatus } from '../../../core/models';
-import { PAY_TONE, ROLE_TONE, ROOM_TONE } from './status-styles';
+import { PAY_TONE, ROOM_TONE, roleTone } from './status-styles';
+import { RoleLabelPipe } from './role-label.pipe';
 
 /** Бейдж статуса номера: точка + подпись. */
 @Component({
@@ -47,18 +48,18 @@ export class PayBadge {
 /** Бейдж роли сотрудника. */
 @Component({
   selector: 'app-role-badge',
-  imports: [TranslocoPipe],
+  imports: [RoleLabelPipe],
   template: `
     <span
       class="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-[3px] text-xs font-semibold"
       [style.background]="tone().bg"
       [style.color]="tone().fg"
     >
-      {{ 'roles.' + role() | transloco }}
+      {{ role() | roleLabel }}
     </span>
   `,
 })
 export class RoleBadge {
   readonly role = input.required<RoleCode>();
-  protected readonly tone = computed(() => ROLE_TONE[this.role()]);
+  protected readonly tone = computed(() => roleTone(this.role()));
 }

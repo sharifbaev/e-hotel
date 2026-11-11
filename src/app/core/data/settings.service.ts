@@ -16,7 +16,7 @@ const normHotel = (h: HotelSettings): HotelSettings => ({
   currency: h.currency ?? 'UZS',
 });
 
-/** Настройки отеля, категории/тарифы и журнал действий (REST API /settings, /categories, /audit-log). */
+/** Настройки отеля, категории/тарифы и журнал действий (REST API /settings, /categories, /audit-log, /audit-log/authors). */
 @Service()
 export class SettingsService {
   private readonly http = inject(HttpClient);
@@ -58,5 +58,10 @@ export class SettingsService {
       .pipe(
         map((list) => list.map((l) => ({ ...l, at: localDateTime(l.at), params: l.params ?? {} }))),
       );
+  }
+
+  /** Авторы записей журнала (в том числе удалённые сотрудники) — для фильтра «Сотрудник». */
+  logAuthors(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.api}/audit-log/authors`);
   }
 }

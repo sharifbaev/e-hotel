@@ -6,10 +6,24 @@
         <h1 class="m-0 text-2xl font-bold tracking-[-0.01em]">{{ 'rooms.title' | transloco }}</h1>
         <p class="mt-0.5 mb-0 text-[13px] text-muted">{{ 'rooms.subtitle' | transloco }}</p>
       </div>
-      <button pButton type="button" (click)="openAdd()">
-        <app-icon name="plus" />
-        <span pButtonLabel>{{ 'rooms.add' | transloco }}</span>
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <!-- Удаление выбранного номера: до выбора номера кнопка неактивна -->
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="askDelete(selected()!)"
+        >
+          <app-icon name="trash" />
+          <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+        </button>
+        <button pButton type="button" (click)="openAdd()">
+          <app-icon name="plus" />
+          <span pButtonLabel>{{ 'rooms.add' | transloco }}</span>
+        </button>
+      </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-2.5">
@@ -328,6 +342,18 @@
       >
         <app-icon name="qr" />
         <span pButtonLabel>{{ 'rooms.qrShort' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="danger"
+        [outlined]="true"
+        class="col-span-2 h-[46px]"
+        [disabled]="!canDelete(room)"
+        (click)="askDelete(room)"
+      >
+        <app-icon name="trash" />
+        <span pButtonLabel>{{ 'rooms.deleteShort' | transloco }}</span>
       </button>
     </div>
   }
@@ -933,3 +959,13 @@
 
 <!-- Сформированный при выселении чек: просмотр, скачать, печать -->
 <app-fiscal-receipt-dialog [(visible)]="receiptOpen" [receipt]="receiptView()" />
+
+<!-- Удаление номера -->
+<app-confirm-dialog
+  [(visible)]="deleteOpen"
+  title="rooms.confirmDelete.title"
+  text="rooms.confirmDelete.text"
+  [params]="{ room: deleteRoom()?.number ?? '' }"
+  [busy]="saving()"
+  (confirm)="doDelete()"
+/>

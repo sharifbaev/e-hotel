@@ -24,12 +24,32 @@ export const PAY_TONE: Record<PaymentStatus, { bg: string; fg: string }> = {
   wait: { bg: '#FDEBD3', fg: '#7A3A0A' },
 };
 
-export const ROLE_TONE: Record<RoleCode, { bg: string; fg: string }> = {
+const ROLE_TONES: Record<string, { bg: string; fg: string }> = {
   owner: { bg: '#EDE9FE', fg: '#5B21B6' },
   admin: { bg: '#E6F4F2', fg: '#0B5A54' },
-  reception: { bg: '#DCE7FD', fg: '#1E3A8A' },
-  housekeeper: { bg: '#FBF0E6', fg: '#8A4A14' },
   accountant: { bg: '#F2F4F7', fg: '#344054' },
 };
 
-export const ROLES: RoleCode[] = ['owner', 'admin', 'reception', 'housekeeper', 'accountant'];
+/** Созданные пользователем роли — цвет по коду из этой палитры. */
+const CUSTOM_TONES = [
+  { bg: '#DCE7FD', fg: '#1E3A8A' },
+  { bg: '#FBF0E6', fg: '#8A4A14' },
+  { bg: '#FEF0C7', fg: '#93370D' },
+  { bg: '#E7F6EC', fg: '#067647' },
+  { bg: '#FCE7F6', fg: '#9E165F' },
+];
+
+export function roleTone(code: RoleCode): { bg: string; fg: string } {
+  const known = ROLE_TONES[code];
+  if (known) {
+    return known;
+  }
+  let h = 0;
+  for (const ch of code ?? '') {
+    h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return CUSTOM_TONES[h % CUSTOM_TONES.length];
+}
+
+/** Системные роли (подписи — перевод roles.<code>). */
+export const SYSTEM_ROLES: RoleCode[] = ['owner', 'admin', 'accountant'];

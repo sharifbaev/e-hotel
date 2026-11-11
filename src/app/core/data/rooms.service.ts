@@ -69,6 +69,11 @@ export class RoomsService {
       .pipe(map(normRoom));
   }
 
+  /** Удаление номера (только без проживающих гостей; сервер проверяет сам). */
+  remove(number: string): Observable<void> {
+    return this.http.delete<void>(`${this.api}/rooms/${enc(number)}`);
+  }
+
   /** Продление проживания: новая дата и время выезда (для всех гостей номера). */
   extend(number: string, checkout: string): Observable<Room> {
     return this.http

@@ -154,7 +154,7 @@
         </section>
       </p-tabpanel>
 
-      <!-- ===== Номера и тарифы ===== -->
+      <!-- ===== Справочники ===== -->
       <p-tabpanel value="rates">
         <section
           class="rise flex flex-col gap-4 rounded-[14px] border border-line bg-white p-6 max-md:p-4"
@@ -277,6 +277,12 @@
             </table>
           </div>
         </section>
+
+        <!-- Роли сотрудников и доступ к меню -->
+        <app-roles-section class="mt-4 block" />
+
+        <!-- Справочник видов дополнительных сервисов -->
+        <app-service-types-section class="mt-4 block" />
       </p-tabpanel>
 
       <!-- ===== Журнал действий ===== -->

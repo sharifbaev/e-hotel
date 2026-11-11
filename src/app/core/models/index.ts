@@ -4,7 +4,68 @@ import type { FiscalReceiptData } from '../docs/fiscal-receipt-doc';
 
 export type Lang = 'ru' | 'uz-Latn' | 'uz-Cyrl';
 
-export type RoleCode = 'owner' | 'admin' | 'reception' | 'housekeeper' | 'accountant';
+/**
+ * Код роли. Системные роли — owner, admin, accountant (нельзя удалить);
+ * роли, созданные в «Настройки → Справочники», получают код от сервера.
+ */
+export type RoleCode = string;
+
+/** Системные роли (подписи — в i18n roles.*). */
+export type SystemRoleCode = 'owner' | 'admin' | 'accountant';
+
+/** Разделы меню, к которым роль может иметь доступ. */
+export type AppSection =
+  | 'dashboard'
+  | 'rooms'
+  | 'book'
+  | 'guests'
+  | 'blacklist'
+  | 'payments'
+  | 'comments'
+  | 'users'
+  | 'settings';
+
+export const APP_SECTIONS: AppSection[] = [
+  'dashboard',
+  'rooms',
+  'book',
+  'guests',
+  'blacklist',
+  'payments',
+  'comments',
+  'users',
+  'settings',
+];
+
+/** Доступ системных ролей по умолчанию (пока сервер не прислал свои разделы). */
+export const DEFAULT_ROLE_SECTIONS: Record<SystemRoleCode, AppSection[]> = {
+  owner: APP_SECTIONS,
+  admin: ['rooms', 'book', 'guests', 'payments', 'comments'],
+  accountant: ['dashboard', 'payments'],
+};
+
+/** Роль сотрудника (REST API /roles). */
+export interface Role {
+  id: number;
+  code: RoleCode;
+  /** Название; у системных ролей в интерфейсе показывается перевод roles.<code>. */
+  name: string;
+  /** true — системная роль (owner/admin/accountant): нельзя удалить и переименовать. */
+  system: boolean;
+  /** Разделы меню, доступные роли. У owner — всегда все. */
+  sections: AppSection[];
+}
+
+export interface RoleDraft {
+  name: string;
+  sections: AppSection[];
+}
+
+/** Вид дополнительного сервиса (справочник REST API /service-types). */
+export interface ServiceTypeItem {
+  id: number;
+  name: string;
+}
 
 export type RoomStatus = 'free' | 'busy' | 'clean' | 'repair';
 
@@ -21,6 +82,10 @@ export interface CurrentUser {
   name: string;
   login: string;
   role: RoleCode;
+  /** Название роли (для ролей, созданных пользователем). */
+  roleName?: string;
+  /** Разделы меню, доступные пользователю; нет — берутся DEFAULT_ROLE_SECTIONS по коду роли. */
+  sections?: AppSection[];
   hotelName: string;
   hotelCity: string;
   /** true — пароль сброшен администратором, сервер ждёт смены пароля. */
@@ -171,7 +236,11 @@ export interface Expense {
   /** Дата и время записи (с секундами). */
   date: IsoDateTime;
   who: string;
-  /** Только для «Дополнительных сервисов»: вид услуги (для 'other' текст — в reason). */
+  /** Только для «Дополнительных сервисов»: вид услуги из справочника; null — «Другое» (текст — в reason). */
+  serviceTypeId?: number | null;
+  /** Название вида услуги (присылает сервер). */
+  serviceTypeName?: string;
+  /** Старый формат (до справочника): код вида услуги. */
   serviceType?: ServiceType;
   /** Только для «Долгов»: ФИО должника. */
   debtor?: string;
@@ -182,7 +251,7 @@ export type ExpenseDraft = Omit<Expense, 'id'>;
 /** Вкладки меню «Платежи и расходы» — у всех одна структура записи (Expense). */
 export type LedgerKind = 'expense' | 'service' | 'debt';
 
-/** Виды дополнительных сервисов; подписи — в i18n (serviceTypes.*). */
+/** Старые коды видов дополнительных сервисов (до справочника /service-types); подписи — в i18n (serviceTypes.*). */
 export type ServiceType = 'breakfast' | 'pool_sauna' | 'photo' | 'other';
 
 export const SERVICE_TYPES: ServiceType[] = ['breakfast', 'pool_sauna', 'photo', 'other'];
@@ -192,6 +261,8 @@ export interface StaffUser {
   name: string;
   login: string;
   role: RoleCode;
+  /** Название роли (для ролей, созданных пользователем). */
+  roleName?: string;
   phone: string;
   active: boolean;
   /** ISO время последнего входа; null — ещё не входил. */

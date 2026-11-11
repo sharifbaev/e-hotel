@@ -35,6 +35,7 @@ import {
 import { DayMonthPipe, PluralPipe, SumPipe } from '../../shared/format/format.pipes';
 import { sumInWords } from '../../shared/format/sum-in-words';
 import { SumInputDirective } from '../../shared/forms/sum-input.directive';
+import { ConfirmDialog } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { FiscalReceiptDialog } from '../../shared/ui/fiscal-receipt/fiscal-receipt-dialog';
 import { Icon } from '../../shared/ui/icon/icon';
 import { PayBadge, RoomStatusBadge } from '../../shared/ui/status/badges';
@@ -70,6 +71,7 @@ type StatusFilter = RoomStatus | 'all';
     DayMonthPipe,
     PluralPipe,
     FiscalReceiptDialog,
+    ConfirmDialog,
   ],
   templateUrl: './rooms.html',
 })
@@ -286,6 +288,61 @@ export class RoomsPage {
         });
       },
       error: (e: unknown) => this.fail(e),
+    });
+  }
+
+  // ----- Удаление номера -----
+  protected readonly deleteRoom = signal<Room | null>(null);
+  protected readonly deleteOpen = signal(false);
+
+  /** Номер с проживающими гостями удалить нельзя. */
+  protected canDelete(room: Room): boolean {
+    return room.guests.length === 0 && room.status !== 'busy';
+  }
+
+  protected askDelete(room: Room): void {
+    if (!this.canDelete(room)) {
+      this.notify.error('rooms.toast.deleteBusyTitle', 'rooms.toast.deleteBusyText', {
+        room: room.number,
+      });
+      return;
+    }
+    this.deleteRoom.set(room);
+    this.deleteOpen.set(true);
+  }
+
+  protected doDelete(): void {
+    const room = this.deleteRoom();
+    if (!room) {
+      return;
+    }
+    this.saving.set(true);
+    this.roomsApi.remove(room.number).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.deleteOpen.set(false);
+        this.rooms.update((list) => list.filter((r) => r.number !== room.number));
+        if (this.selectedNumber() === room.number) {
+          this.selectedNumber.set(null);
+        }
+        this.notify.success('rooms.toast.deletedTitle', 'rooms.toast.deletedText', {
+          room: room.number,
+        });
+      },
+      error: (e: unknown) => {
+        this.saving.set(false);
+        this.deleteOpen.set(false);
+        if (e instanceof ApiError && e.code === 'rooms.hasGuests') {
+          this.notify.error('rooms.toast.deleteBusyTitle', 'rooms.toast.deleteBusyText', {
+            room: room.number,
+          });
+        } else {
+          this.notify.error(
+            'common.saveError',
+            e instanceof ApiError ? `errors.${e.code}` : 'errors.common.unknown',
+          );
+        }
+      },
     });
   }
 

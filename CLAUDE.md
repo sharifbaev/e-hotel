@@ -3,7 +3,7 @@
 Веб-приложение для управления отелями и хостелами на рынке Узбекистана / Центральной Азии.
 
 ## Модули
-- Аутентификация и роли (RBAC): владелец, администратор, ресепшн, горничная
+- Аутентификация и роли (RBAC): системные роли владелец, администратор, бухгалтер + роли, созданные в «Настройки → Справочники»
 - Номерной фонд: номера, категории, статусы (свободен / занят / уборка / ремонт)
 - Бронирования и шахматка (календарь занятости)
 - Гости: карточка гостя, регистрация гостей по требованиям законодательства РУз
@@ -35,6 +35,7 @@
 - «Сегодня» — токен `APP_TODAY` (дата на компьютере)
 - Вход — реальные учётные записи сервера (POST /auth/login); после сброса пароля — окно обязательной смены (`shared/ui/change-password`)
 - Ключ лицензии PrimeUI — `src/app/core/theme/primeui-license.ts`
+- Доступ к меню (10.11.2026, API v1.2 — `docs/*v1.2-qoshimcha*`): разделы `AppSection` (models); `AuthService.sections()/can()/homePath()` — из `CurrentUser.sections`, иначе `DEFAULT_ROLE_SECTIONS`; маршруты — `sectionGuard(...)`, меню фильтруется по разделам. Роли — `RolesService` (`/roles`, без API — 3 системные), подпись — пайп `roleLabel`. Виды доп. сервисов — справочник `/service-types` (`ServiceTypesService`), в форме + «Другое» (serviceTypeId = null). Удаление номера — `DELETE /rooms/{number}`
 - Комментарии гостей и QR-коды — тоже REST API (`/comments`, `/qr`). Локальный `server/hotel-api.mjs` (`npm run api`) нужен только для `/api/lan` — Wi-Fi адресов ноутбука в QR-ссылке, когда сайт открыт как localhost (`npm run start:lan`). Страница гостя по QR — публичный маршрут `/c/:room`
 
 You are an expert in TypeScript, Angular, and scalable web application development. You write functional, maintainable, performant, and accessible code following Angular and TypeScript best practices.

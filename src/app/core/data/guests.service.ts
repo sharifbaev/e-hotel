@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import { API_URL, localDateTime } from '../api/api';
+import { API_URL, localDateTime, normDocDates } from '../api/api';
 import { ArchivedGuest, GuestProfile, GuestRegistration } from '../models';
 import { BookService } from './book.service';
 
@@ -19,7 +19,7 @@ export class GuestsService {
     return this.http.get<ArchivedGuest[]>(`${this.api}/guests/archive`).pipe(
       map((list) =>
         list.map((g) => ({
-          ...g,
+          ...normDocDates(g),
           checkin: localDateTime(g.checkin),
           checkout: localDateTime(g.checkout),
           receipt: g.receipt ?? null,
@@ -32,7 +32,7 @@ export class GuestsService {
   lookupByDoc(doc: string): Observable<GuestProfile> {
     return this.http.get<GuestProfile>(`${this.api}/guests/lookup`, {
       params: { doc: doc.trim() },
-    });
+    }).pipe(map(normDocDates));
   }
 
   /** Регистрация одного гостя (форма без вкладок) — то же, что POST /book с одной записью. */

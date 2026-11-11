@@ -54,7 +54,7 @@ export class LoginPage {
     const { login, password, remember } = this.form.getRawValue();
     this.busy.set(true);
     this.auth.login(login, password, remember).subscribe({
-      next: () => this.router.navigate(['/dashboard']),
+      next: () => this.router.navigateByUrl(this.auth.homePath()),
       error: (e: unknown) => {
         this.busy.set(false);
         const code = e instanceof ApiError ? e.code : 'auth.invalid';

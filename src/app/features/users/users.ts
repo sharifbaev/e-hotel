@@ -13,7 +13,8 @@ import { ApiError } from '../../core/api/mock-api';
 import { AuthService } from '../../core/auth/auth.service';
 import { UsersService } from '../../core/data/users.service';
 import { LanguageService } from '../../core/i18n/language.service';
-import { AccessLevel, RoleCode, StaffUser, StaffUserDraft } from '../../core/models';
+import { RolesService } from '../../core/data/roles.service';
+import { APP_SECTIONS, AccessLevel, RoleCode, StaffUser, StaffUserDraft } from '../../core/models';
 import { NotifyService } from '../../core/notify/notify.service';
 import { formatDateTime } from '../../shared/format/format';
 import { avatarCell, dotCell, pillCell } from '../../shared/grid/cells';
@@ -21,7 +22,8 @@ import { DataGrid } from '../../shared/grid/data-grid';
 import { dateFilter } from '../../shared/grid/grid-filters';
 import { ConfirmDialog } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { Icon, IconName } from '../../shared/ui/icon/icon';
-import { ROLES, ROLE_TONE } from '../../shared/ui/status/status-styles';
+import { RoleLabelPipe, roleLabel } from '../../shared/ui/status/role-label.pipe';
+import { roleTone } from '../../shared/ui/status/status-styles';
 
 const ACCESS_STYLE: Record<AccessLevel, { icon: IconName; bg: string; fg: string; key: string }> = {
   2: { icon: 'check', bg: '#E7F6EC', fg: '#067647', key: 'users.access.full' },
@@ -42,6 +44,7 @@ const ACCESS_STYLE: Record<AccessLevel, { icon: IconName; bg: string; fg: string
     DataGrid,
     ConfirmDialog,
     Icon,
+    RoleLabelPipe,
   ],
   templateUrl: './users.html',
 })
@@ -56,23 +59,37 @@ export class UsersPage {
   private readonly grid = viewChild<DataGrid<StaffUser>>(DataGrid);
 
   private readonly res = rxResource({ stream: () => this.api.list() });
-  private readonly permRes = rxResource({ stream: () => this.api.permissions() });
+  private readonly rolesApi = inject(RolesService);
+  /** Роли из «Настройки → Справочники» (GET /roles). */
+  private readonly rolesRes = rxResource({ stream: () => this.rolesApi.list() });
+  protected readonly roleList = computed(() =>
+    this.rolesRes.hasValue() ? this.rolesRes.value() : this.rolesApi.roles(),
+  );
 
   protected readonly users = linkedSignal<StaffUser[]>(() =>
     this.res.hasValue() ? this.res.value() : [],
   );
   protected readonly loading = computed(() => this.res.isLoading());
-  protected readonly roles = ROLES;
   protected readonly selected = signal<StaffUser | null>(null);
   protected readonly saving = signal(false);
   protected readonly meId = computed(() => this.auth.user()?.id ?? -1);
 
+  /** Матрица «Роли и права доступа»: раздел меню × роль (доступ есть / нет). */
   protected readonly permissions = computed(() =>
-    (this.permRes.hasValue() ? this.permRes.value() : []).map((row) => ({
-      section: row.section,
-      cells: ROLES.map((role) => ({ role, ...ACCESS_STYLE[row.access[role]] })),
-    })),
+    this.rolesRes.isLoading()
+      ? []
+      : APP_SECTIONS.map((section) => ({
+          section,
+          cells: this.roleList().map((r) => ({
+            role: r.code,
+            ...ACCESS_STYLE[(r.sections.includes(section) ? 2 : 0) as AccessLevel],
+          })),
+        })),
   );
+
+  private roleName(u: Pick<StaffUser, 'role' | 'roleName'>): string {
+    return roleLabel(u.role, u.roleName, this.rolesApi, (k) => this.transloco.translate(k));
+  }
 
   protected readonly columns = computed<ColDef<StaffUser>[]>(() => {
     this.lang.current();
@@ -85,7 +102,7 @@ export class UsersPage {
         flex: 2,
         minWidth: 220,
         cellRenderer: (p: { data: StaffUser }) => {
-          const tone = ROLE_TONE[p.data.role];
+          const tone = roleTone(p.data.role);
           return avatarCell(p.data.name, {
             size: 32,
             bg: p.data.active ? tone.bg : '#F2F4F7',
@@ -104,9 +121,9 @@ export class UsersPage {
         colId: 'role',
         headerName: t('users.col.role'),
         flex: 1.2,
-        valueGetter: (p) => (p.data ? t('roles.' + p.data.role) : ''),
+        valueGetter: (p) => (p.data ? this.roleName(p.data) : ''),
         cellRenderer: (p: { data: StaffUser; value: string }) => {
-          const tone = ROLE_TONE[p.data.role];
+          const tone = roleTone(p.data.role);
           return pillCell(p.value, tone.bg, tone.fg);
         },
       },
@@ -161,7 +178,7 @@ export class UsersPage {
     name: ['', Validators.required],
     login: ['', [Validators.required, Validators.pattern(/^[a-z0-9._-]{3,32}$/)]],
     phone: [''],
-    role: this.fb.control<RoleCode>('reception'),
+    role: this.fb.control<RoleCode>('admin'),
     active: [true],
     password: [''],
   });
@@ -183,7 +200,7 @@ export class UsersPage {
       name: '',
       login: '',
       phone: '',
-      role: 'reception',
+      role: 'admin',
       active: true,
       password: '',
     });
@@ -254,7 +271,7 @@ export class UsersPage {
           this.users.update((l) => [...l, saved]);
           this.notify.success('users.toast.addedTitle', 'users.toast.addedText', {
             name: saved.name,
-            role: this.transloco.translate('roles.' + saved.role),
+            role: this.roleName(saved),
             login: saved.login,
           });
         } else {
