@@ -3,6 +3,8 @@ import { Component, computed, effect, inject, input, linkedSignal, signal, viewC
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { RoomsService } from '../../core/data/rooms.service';
+import { CheckoutDialog } from '../rooms/checkout-dialog';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ColDef } from 'ag-grid-community';
 import { ButtonModule } from 'primeng/button';
@@ -10,6 +12,8 @@ import { Dialog } from 'primeng/dialog';
 import { BlacklistService } from '../../core/data/blacklist.service';
 import { BookService } from '../../core/data/book.service';
 import { LanguageService } from '../../core/i18n/language.service';
+import { PaymentTypesService } from '../../core/data/payment-types.service';
+import { PayLabelPipe } from '../../shared/format/pay-label.pipe';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { NotifyService } from '../../core/notify/notify.service';
 import { BookEntry, GuestRegistration, PaymentMethod } from '../../core/models';
@@ -32,16 +36,21 @@ export interface BookRow extends BookEntry {
   banned: boolean;
 }
 
+type Tone = { bg: string; fg: string; dot: string };
+
 /** Цвета способов оплаты (контраст текста ≥ 4.5:1 на подложке). */
-export const PAYMENT_TONE: Record<PaymentMethod, { bg: string; fg: string; dot: string }> = {
+export const PAYMENT_TONE: Record<string, Tone> = {
   cash: { bg: '#E7F6EC', fg: '#166534', dot: '#2E8B57' },
   uzcard: { bg: '#DCE7FD', fg: '#1E3A8A', dot: '#3B6FE0' },
   visa: { bg: '#EDE9FE', fg: '#5B21B6', dot: '#7C5CDB' },
   transfer: { bg: '#F2F4F7', fg: '#344054', dot: '#98A2B3' },
+  mixed: { bg: '#E0F2FE', fg: '#075985', dot: '#0EA5E9' },
   unpaid: { bg: '#FDEBD3', fg: '#7A3A0A', dot: '#E8A54B' },
 };
 
-const PAYMENTS: PaymentMethod[] = ['cash', 'uzcard', 'visa', 'transfer', 'unpaid'];
+/** Свои типы оплаты из справочника — нейтральный цвет. */
+const CUSTOM_TONE: Tone = { bg: '#E0F2F1', fg: '#115E59', dot: '#14B8A6' };
+export const payTone = (code: string): Tone => PAYMENT_TONE[code] ?? CUSTOM_TONE;
 
 const fullName = (e: BookEntry) => `${e.reg.lastName} ${e.reg.firstName}`.trim();
 
@@ -52,6 +61,8 @@ const fullName = (e: BookEntry) => `${e.reg.lastName} ${e.reg.firstName}`.trim()
 @Component({
   selector: 'app-book',
   imports: [
+    CheckoutDialog,
+    PayLabelPipe,
     FormsModule,
     TranslocoPipe,
     ButtonModule,
@@ -74,7 +85,11 @@ export class BookPage {
   private readonly notify = inject(NotifyService);
   private readonly transloco = inject(TranslocoService);
   private readonly lang = inject(LanguageService);
+  private readonly payTypes = inject(PaymentTypesService);
   private readonly router = inject(Router);
+  private readonly roomsApi = inject(RoomsService);
+  private readonly checkoutDialog = viewChild.required(CheckoutDialog);
+  protected readonly checkoutLoading = signal(false);
   protected readonly bp = inject(BreakpointService);
 
   /** ?register=1&room=103 — сразу открыть заселение в номер (из раздела «Номера»). */
@@ -106,11 +121,17 @@ export class BookPage {
     const all = { key: 'all' as PayFilter, count: list.length, dot: '#475467' };
     return [
       all,
-      ...PAYMENTS.map((key) => ({
-        key: key as PayFilter,
-        count: list.filter((r) => r.reg.payment === key).length,
-        dot: PAYMENT_TONE[key].dot,
-      })).filter((c) => c.count > 0),
+      ...this.payTypes
+        .items()
+        .map((t) => t.code)
+        .concat(list.map((r) => r.reg.payment))
+        .filter((key, i, all) => all.indexOf(key) === i)
+        .map((key) => ({
+          key: key as PayFilter,
+          count: list.filter((r) => r.reg.payment === key).length,
+          dot: payTone(key).dot,
+        }))
+        .filter((c) => c.count > 0),
     ];
   });
 
@@ -120,6 +141,7 @@ export class BookPage {
   );
 
   constructor() {
+    this.payTypes.ensureLoaded();
     effect(() => {
       if (this.register()) {
         this.openAdd(this.room() ?? null);
@@ -171,18 +193,8 @@ export class BookPage {
         colId: 'checkin',
         headerName: t('guests.col.checkin'),
         flex: 1.1,
+        sort: 'desc',
         valueGetter: (p) => p.data?.reg.checkin ?? '',
-        minWidth: 160,
-        valueFormatter: (p) => dt(p.value),
-        ...dateFilter<BookRow>(),
-        cellClass: 'text-ink-2',
-      },
-      {
-        colId: 'checkout',
-        headerName: t('guests.col.checkout'),
-        flex: 1.1,
-        sort: 'asc',
-        valueGetter: (p) => p.data?.reg.checkout ?? '',
         minWidth: 160,
         valueFormatter: (p) => dt(p.value),
         ...dateFilter<BookRow>(),
@@ -203,12 +215,12 @@ export class BookPage {
         headerName: t('book.col.payment'),
         flex: 1.4,
         minWidth: 190,
-        valueGetter: (p) => (p.data ? t('paymentMethods.' + p.data.reg.payment) : ''),
+        valueGetter: (p) => (p.data ? this.payTypes.label(p.data.reg.payment) : ''),
         cellRenderer: (p: { value: string; data?: BookRow }) => {
           if (!p.data) {
             return '';
           }
-          const tone = PAYMENT_TONE[p.data.reg.payment];
+          const tone = payTone(p.data.reg.payment);
           return pillCell(p.value, tone.bg, tone.fg, tone.dot);
         },
       },
@@ -219,6 +231,37 @@ export class BookPage {
 
   protected select(row: BookRow | null): void {
     this.selectedId.set(row?.id ?? null);
+  }
+
+  /** «Выселить» — то же окно, что в «Номерах»; выбранный гость отмечен сразу. */
+  protected openCheckout(): void {
+    const r = this.selected();
+    if (!r) {
+      return;
+    }
+    this.checkoutLoading.set(true);
+    this.roomsApi.list().subscribe({
+      next: (rooms) => {
+        this.checkoutLoading.set(false);
+        const room = rooms.find((x) => x.number === r.reg.room);
+        if (!room?.guests.length) {
+          this.notify.error('common.errorTitle', 'errors.common.unknown');
+          return;
+        }
+        this.sheetOpen.set(false);
+        this.checkoutDialog().open(room, [r.reg.doc]);
+      },
+      error: () => {
+        this.checkoutLoading.set(false);
+        this.notify.error('common.errorTitle', 'errors.common.unknown');
+      },
+    });
+  }
+
+  /** После выселения гость ушёл в архив — обновить книгу. */
+  protected onCheckedOut(): void {
+    this.selectedId.set(null);
+    this.reload();
   }
 
   protected reload(): void {
@@ -237,7 +280,7 @@ export class BookPage {
     );
   });
   protected readonly sheetOpen = signal(false);
-  protected readonly tones = PAYMENT_TONE;
+  protected readonly tone = payTone;
 
   protected initials(r: BookEntry): string {
     return initials(fullName(r));
@@ -311,12 +354,11 @@ export class BookPage {
             { label: 'guests.reg.room', value: g.room },
             { label: 'guests.reg.purpose', value: 'purpose.' + g.purpose, translate: true },
             { label: 'guests.reg.checkin', value: dt(g.checkin) },
-            { label: 'guests.reg.checkout', value: dt(g.checkout) },
             {
               label: 'guests.reg.amount',
               value: `${formatSum(g.amount)} ${this.transloco.translate('common.currency')}`,
             },
-            { label: 'guests.reg.payment', value: 'paymentMethods.' + g.payment, translate: true },
+            { label: 'guests.reg.payment', value: this.payTypes.label(g.payment) },
           ],
         },
       ],

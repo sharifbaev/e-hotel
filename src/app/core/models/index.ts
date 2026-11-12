@@ -67,6 +67,18 @@ export interface ServiceTypeItem {
   name: string;
 }
 
+/**
+ * Справочник «Тип оплаты» (/payment-types). code — то, что хранится у гостя в `payment`.
+ * Системные (cash, uzcard, visa, transfer, unpaid) нельзя изменить и удалить,
+ * их название переводится на фронте (paymentMethods.<code>); у своих — code `pt_<id>` и name.
+ */
+export interface PaymentTypeItem {
+  id: number;
+  code: string;
+  name: string;
+  system: boolean;
+}
+
 export type RoomStatus = 'free' | 'busy' | 'clean' | 'repair';
 
 export type PaymentStatus = 'paid' | 'part' | 'wait';
@@ -107,7 +119,8 @@ export interface RoomGuest {
   doc: string;
   phone: string;
   checkin: IsoDateTime;
-  checkout: IsoDateTime;
+  /** Выезд ставится при выселении; у проживающего — null. */
+  checkout: IsoDateTime | null;
   sum: number;
   pay: PaymentStatus;
 }
@@ -152,6 +165,11 @@ export interface ArchivedGuest {
   phone: string;
   /** Сохранённый фискальный чек гостя (кнопка «Фискальный чек» в архиве); нет — не выдавался. */
   receipt?: FiscalReceiptData | null;
+  /** Способ оплаты при выселении (код справочника), null — не указан (старые записи, не первый выезжающий). */
+  checkoutPayment?: string | null;
+  /** Для «Смешанный»: сколько картой и сколько наличными. */
+  paidCard?: number | null;
+  paidCash?: number | null;
 }
 
 /** Полные данные гостя для автозаполнения формы регистрации по документу. */
@@ -176,7 +194,12 @@ export interface GuestProfile {
 
 export type DocType = 'bio_passport' | 'id_card' | 'foreign_passport';
 export type VisitPurpose = 'tourism' | 'business' | 'private';
-export type PaymentMethod = 'cash' | 'uzcard' | 'visa' | 'transfer' | 'unpaid';
+/** Код типа оплаты из справочника /payment-types (системные: cash, uzcard, visa, transfer, unpaid). */
+export type PaymentMethod = string;
+/** Системные коды типов оплаты. */
+export const SYSTEM_PAYMENTS = ['cash', 'uzcard', 'visa', 'transfer', 'mixed', 'unpaid'] as const;
+/** «Смешанный»: часть картой, часть наличными (две суммы при выселении). */
+export const MIXED_PAYMENT = 'mixed';
 export type VisaType = 'visa_free' | 'tourist' | 'business';
 
 export interface GuestRegistration extends GuestProfile {
@@ -186,7 +209,8 @@ export interface GuestRegistration extends GuestProfile {
   entryPoint: string;
   room: string;
   checkin: IsoDateTime;
-  checkout: IsoDateTime;
+  /** В форме заселения нет — фактические дата и время выезда ставятся при выселении. */
+  checkout: IsoDateTime | null;
   purpose: VisitPurpose;
   amount: number;
   payment: PaymentMethod;
@@ -221,6 +245,11 @@ export type BlacklistDraft = Omit<BlacklistEntry, 'id' | 'addedAt' | 'addedBy'>;
 /** Итог выселения: сумма, фискальный чек и (необязательно) чёрный список. */
 export interface CheckoutOptions {
   amount: number;
+  /** Способ оплаты при выселении — код из справочника «Способ оплаты». */
+  payment: string;
+  /** Для «Смешанный» (mixed): сколько картой и сколько наличными (сумма = amount), иначе null. */
+  paidCard: number | null;
+  paidCash: number | null;
   /** Номер сформированного фискального чека, null — чек не выдавался. */
   receipt: string | null;
   /** Данные чека, сформированного при выселении, — сохраняются в архив первому выезжающему. */
@@ -306,16 +335,22 @@ export interface HotelSettings {
   currency: string;
 }
 
-export type LogAction =
-  'checkin' | 'checkout' | 'ready' | 'bookingEdit' | 'tariffEdit' | 'expense' | 'block';
+/**
+ * Код действия журнала (v1.3): `<раздел>.<операция>` — guest.checkin, room.create, expense.delete, auth.login…
+ * Полный список — docs/claude-code-backend-v1.3.md. Старые записи: checkin, checkout, ready, bookingEdit,
+ * tariffEdit, expense, block.
+ */
+export type LogAction = string;
 
 export interface ActionLogEntry {
   id: number;
   at: IsoDateTime;
   who: string;
   action: LogAction;
-  /** Параметры для текста события, текст собирается через Transloco. */
+  /** Параметры для текста события (target, room, sum…), текст собирается через Transloco. */
   params: Record<string, string>;
+  /** Какие поля изменены (имена полей API) — для операций update. */
+  changes?: string[];
 }
 
 export type DashboardMode = 'week' | 'month' | 'period';

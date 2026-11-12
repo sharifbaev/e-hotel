@@ -101,6 +101,9 @@ export class BookService {
       .post<Room>(`${this.api}/rooms/${encodeURIComponent(room)}/checkout`, {
         docs,
         amount: opts.amount,
+        payment: opts.payment,
+        paidCard: opts.paidCard,
+        paidCash: opts.paidCash,
         receipt: opts.receipt,
         receiptData: opts.receiptData ?? null,
         blacklistReason: opts.blacklistReason,

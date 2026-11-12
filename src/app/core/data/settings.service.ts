@@ -1,9 +1,35 @@
 import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
-import { Observable, map, tap } from 'rxjs';
+import { Observable, catchError, map, of, shareReplay, tap } from 'rxjs';
 import { API_URL, localDateTime } from '../api/api';
 import { AuthService } from '../auth/auth.service';
 import { ActionLogEntry, HotelSettings, RoomCategory } from '../models';
+
+/** Шапка фискального чека. */
+export interface ReceiptHeader {
+  /** Юридическое лицо: «ЧП «BEST HOUSE SERVICES»». */
+  org: string;
+  /** Строка с названием: «Hotel “AVESTO”». */
+  hotel: string;
+}
+
+/** Строка юр. лица в чеке, как в старом бланке: «Orbita Invest» → «ЧП «Orbita Invest»». Уже с кавычками — как есть. */
+export function orgLine(legalName: string): string {
+  const n = legalName.trim();
+  if (!n) {
+    return '';
+  }
+  return /[«"“]/.test(n) ? n : `ЧП «${n}»`;
+}
+
+/** Строка названия в чеке, как в старом бланке: «Niyat» → «Hotel “Niyat”». Уже с кавычками — как есть. */
+export function hotelLine(name: string): string {
+  const n = name.trim();
+  if (!n) {
+    return '';
+  }
+  return /[«"“]/.test(n) ? n : `Hotel “${n}”`;
+}
 
 const normHotel = (h: HotelSettings): HotelSettings => ({
   ...h,
@@ -22,6 +48,23 @@ export class SettingsService {
   private readonly http = inject(HttpClient);
   private readonly api = inject(API_URL);
   private readonly auth = inject(AuthService);
+  private header$: Observable<ReceiptHeader> | null = null;
+
+  /**
+   * Шапка чека из «Настройки → Отель» (юр. лицо и название), один запрос на сессию.
+   * GET /settings/hotel доступен всем ролям (v1.3); при ошибке — название из профиля.
+   */
+  receiptHeader(): Observable<ReceiptHeader> {
+    this.header$ ??= this.getHotel().pipe(
+      map((h) => ({ org: orgLine(h.legalName), hotel: hotelLine(h.name) })),
+      catchError(() => {
+        this.header$ = null;
+        return of({ org: '', hotel: hotelLine(this.auth.user()?.hotelName ?? '') });
+      }),
+      shareReplay(1),
+    );
+    return this.header$;
+  }
 
   getHotel(): Observable<HotelSettings> {
     return this.http.get<HotelSettings>(`${this.api}/settings/hotel`).pipe(map(normHotel));
@@ -31,7 +74,10 @@ export class SettingsService {
   saveHotel(data: HotelSettings): Observable<HotelSettings> {
     return this.http.put<HotelSettings>(`${this.api}/settings/hotel`, data).pipe(
       map(normHotel),
-      tap((h) => this.auth.patchUser({ hotelName: h.name, hotelCity: h.city })),
+      tap((h) => {
+        this.auth.patchUser({ hotelName: h.name, hotelCity: h.city });
+        this.header$ = null;
+      }),
     );
   }
 
@@ -56,7 +102,14 @@ export class SettingsService {
     return this.http
       .get<ActionLogEntry[]>(`${this.api}/audit-log`)
       .pipe(
-        map((list) => list.map((l) => ({ ...l, at: localDateTime(l.at), params: l.params ?? {} }))),
+        map((list) =>
+          list.map((l) => ({
+            ...l,
+            at: localDateTime(l.at),
+            params: l.params ?? {},
+            changes: l.changes ?? [],
+          })),
+        ),
       );
   }
 

@@ -10,11 +10,12 @@ import { Select } from 'primeng/select';
 import { BlacklistService } from '../../core/data/blacklist.service';
 import { GuestsService } from '../../core/data/guests.service';
 import { LanguageService } from '../../core/i18n/language.service';
+import { PaymentTypesService } from '../../core/data/payment-types.service';
 import { NotifyService } from '../../core/notify/notify.service';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { MOCK_COUNTRIES } from '../../core/mocks/mock-data';
 import { FiscalReceiptData } from '../../core/docs/fiscal-receipt-doc';
-import { ArchivedGuest } from '../../core/models';
+import { ArchivedGuest, MIXED_PAYMENT } from '../../core/models';
 import { formatDateTime, formatDmy, formatSum, initials } from '../../shared/format/format';
 import { DmyPipe, SumPipe } from '../../shared/format/format.pipes';
 import { avatarCell } from '../../shared/grid/cells';
@@ -64,6 +65,7 @@ export class GuestsPage {
   private readonly router = inject(Router);
   private readonly blacklist = inject(BlacklistService);
   private readonly notify = inject(NotifyService);
+  private readonly payTypes = inject(PaymentTypesService);
   protected readonly bp = inject(BreakpointService);
 
   /** Query-параметр ?q= — поиск из шапки. */
@@ -78,6 +80,7 @@ export class GuestsPage {
   protected readonly search = signal('');
 
   constructor() {
+    this.payTypes.ensureLoaded();
     effect(() => this.search.set(this.q() ?? ''));
   }
 
@@ -178,6 +181,21 @@ export class GuestsPage {
             { label: 'guests.reg.checkin', value: formatDmy(g.checkin) },
             { label: 'guests.reg.checkout', value: formatDmy(g.checkout) },
             { label: 'guests.reg.amount', value: `${formatSum(g.sum)} ${t('common.currency')}` },
+            ...(g.checkoutPayment
+              ? [{ label: 'rooms.checkoutPayment', value: this.payTypes.label(g.checkoutPayment) }]
+              : []),
+            ...(g.checkoutPayment === MIXED_PAYMENT
+              ? [
+                  {
+                    label: 'rooms.paidCard',
+                    value: `${formatSum(g.paidCard ?? 0)} ${t('common.currency')}`,
+                  },
+                  {
+                    label: 'rooms.paidCash',
+                    value: `${formatSum(g.paidCash ?? 0)} ${t('common.currency')}`,
+                  },
+                ]
+              : []),
           ],
         },
       ],
@@ -270,6 +288,46 @@ export class GuestsPage {
         valueFormatter: (p) => formatSum(p.value),
         ...sumFilter<ArchivedGuest>(),
         cellClass: 'font-semibold tabular-nums',
+      },
+      {
+        colId: 'payment',
+        headerName: t('rooms.checkoutPayment'),
+        flex: 1.2,
+        minWidth: 190,
+        valueGetter: (p) => {
+          const g = p.data;
+          if (!g?.checkoutPayment) {
+            return '';
+          }
+          return g.checkoutPayment === MIXED_PAYMENT
+            ? t('paymentShort.mixed')
+            : this.payTypes.label(g.checkoutPayment);
+        },
+        // «Смешанный» — разбивка второй строкой; всё обрезается внутри ячейки, полный текст — в подсказке
+        cellRenderer: (p: { value: string; data?: ArchivedGuest }) => {
+          const g = p.data;
+          if (!p.value) {
+            return '—';
+          }
+          const esc = (v: string) =>
+            v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+          if (g?.checkoutPayment !== MIXED_PAYMENT) {
+            return `<span class="block truncate">${esc(p.value)}</span>`;
+          }
+          const split = `${t('paymentShort.card')} ${formatSum(g.paidCard ?? 0)} · ${t('paymentShort.cash')} ${formatSum(g.paidCash ?? 0)}`;
+          return `<span class="flex min-w-0 flex-col leading-tight"><span class="truncate">${esc(p.value)}</span><span class="truncate text-xs text-muted tabular-nums">${esc(split)}</span></span>`;
+        },
+        tooltipValueGetter: (p) => {
+          const g = p.data;
+          if (!g?.checkoutPayment) {
+            return null;
+          }
+          const name = this.payTypes.label(g.checkoutPayment);
+          return g.checkoutPayment === MIXED_PAYMENT
+            ? `${name}: ${t('rooms.paidCard')} ${formatSum(g.paidCard ?? 0)}, ${t('rooms.paidCash')} ${formatSum(g.paidCash ?? 0)}`
+            : name;
+        },
+        cellClass: 'text-ink-2 overflow-hidden',
       },
       {
         colId: 'receipt',

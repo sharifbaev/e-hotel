@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { inject } from '@angular/core';
-import { authGuard, guestGuard, sectionGuard } from './core/auth/auth.guards';
+import { authGuard, guestGuard, ownerGuard, sectionGuard } from './core/auth/auth.guards';
 import { AuthService } from './core/auth/auth.service';
 
 export const routes: Routes = [
@@ -69,6 +69,20 @@ export const routes: Routes = [
       {
         path: 'settings',
         canActivate: [sectionGuard('settings')],
+        loadComponent: () => import('./features/settings/settings').then((m) => m.SettingsPage),
+      },
+      {
+        // «Справочники»: категории и тарифы, роли, виды доп. сервисов, типы оплаты (вкладки)
+        path: 'references',
+        canActivate: [sectionGuard('settings')],
+        data: { view: 'references' },
+        loadComponent: () => import('./features/settings/settings').then((m) => m.SettingsPage),
+      },
+      {
+        // «Журнал действий» — только владелец
+        path: 'audit-log',
+        canActivate: [sectionGuard('settings'), ownerGuard],
+        data: { view: 'log' },
         loadComponent: () => import('./features/settings/settings').then((m) => m.SettingsPage),
       },
       {

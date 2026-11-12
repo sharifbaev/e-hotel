@@ -52,7 +52,9 @@ export class Shell {
 
   /** Пункты меню — только разделы, доступные роли пользователя. */
   private readonly allowed = (items: NavItem[]) =>
-    items.filter((i) => !i.section || this.auth.can(i.section));
+    items.filter(
+      (i) => (!i.section || this.auth.can(i.section)) && (!i.ownerOnly || this.auth.isOwner()),
+    );
   protected readonly mainNav = computed(() => this.allowed(MAIN_NAV));
   protected readonly mobileNav = computed(() => this.allowed(MOBILE_NAV));
   protected readonly adminNav = computed(() => this.allowed(ADMIN_NAV));

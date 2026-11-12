@@ -14,6 +14,20 @@
           severity="danger"
           [outlined]="true"
           [disabled]="!selected()"
+          [loading]="checkoutLoading()"
+          (click)="openCheckout()"
+        >
+          @if (!checkoutLoading()) {
+            <app-icon name="checkout" />
+          }
+          <span pButtonLabel>{{ 'rooms.checkout' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          [disabled]="!selected()"
           (click)="openBlacklist()"
         >
           <app-icon name="ban" />
@@ -110,7 +124,7 @@
           (click)="filter.set(c.key)"
         >
           <span class="size-[7px] rounded-full" [style.background]="c.dot"></span>
-          {{ (c.key === 'all' ? 'common.all' : 'paymentMethods.' + c.key) | transloco }}
+          {{ c.key === 'all' ? ('common.all' | transloco) : (c.key | payLabel) }}
           <span class="opacity-80">{{ c.count }}</span>
         </button>
       }
@@ -158,13 +172,13 @@
             </span>
             <span
               class="max-w-[42%] shrink-0 truncate rounded-full px-2.5 py-[3px] text-xs font-semibold"
-              [style.background]="tones[r.reg.payment].bg"
-              [style.color]="tones[r.reg.payment].fg"
-              >{{ 'paymentMethods.' + r.reg.payment | transloco }}</span
+              [style.background]="tone(r.reg.payment).bg"
+              [style.color]="tone(r.reg.payment).fg"
+              >{{ r.reg.payment | payLabel }}</span
             >
           </span>
           <span class="flex w-full justify-between border-t border-chip pt-2.5 text-xs text-ink-2">
-            <span>{{ r.reg.checkin | dayMonth }} → {{ r.reg.checkout | dayMonth }}</span>
+            <span>{{ r.reg.checkin | dayMonth }}</span>
             @if (r.banned) {
               <span class="font-semibold text-danger">{{ 'book.banned' | transloco }}</span>
             } @else {
@@ -189,12 +203,26 @@
       <div class="flex flex-col gap-2 pt-1 pb-2">
         <p class="m-0 text-[13px] text-muted">
           {{ 'guests.col.room' | transloco }} {{ r.reg.room }} ·
-          {{ r.reg.checkin | dayMonth }} → {{ r.reg.checkout | dayMonth }} ·
-          {{ 'paymentMethods.' + r.reg.payment | transloco }}
+          {{ r.reg.checkin | dayMonth }} ·
+          {{ r.reg.payment | payLabel }}
         </p>
         <button pButton type="button" class="h-12" (click)="openInfo(r)">
           <app-icon name="user" />
           <span pButtonLabel>{{ 'guestInfo.open' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="danger"
+          [outlined]="true"
+          class="h-12"
+          [loading]="checkoutLoading()"
+          (click)="openCheckout()"
+        >
+          @if (!checkoutLoading()) {
+            <app-icon name="checkout" />
+          }
+          <span pButtonLabel>{{ 'rooms.checkout' | transloco }}</span>
         </button>
         <button
           pButton
@@ -290,3 +318,6 @@
     <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
   </button>
 </app-guest-info-dialog>
+
+<!-- Выселение: общее окно с «Номерами» -->
+<app-checkout-dialog (checkedOut)="onCheckedOut()" />

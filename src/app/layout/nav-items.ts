@@ -10,6 +10,8 @@ export interface NavItem {
   section?: AppSection;
   /** Показывать счётчик новых комментариев. */
   commentsBadge?: boolean;
+  /** Только владелец (журнал действий). */
+  ownerOnly?: boolean;
 }
 
 /** Основное меню (сайдбар на десктопе). */
@@ -31,6 +33,14 @@ export const MAIN_NAV: NavItem[] = [
 
 export const ADMIN_NAV: NavItem[] = [
   { path: '/users', label: 'nav.users', icon: 'shield', section: 'users' },
+  { path: '/references', label: 'nav.references', icon: 'list-search', section: 'settings' },
+  {
+    path: '/audit-log',
+    label: 'nav.auditLog',
+    icon: 'clock',
+    section: 'settings',
+    ownerOnly: true,
+  },
   { path: '/settings', label: 'nav.settings', icon: 'settings', section: 'settings' },
 ];
 

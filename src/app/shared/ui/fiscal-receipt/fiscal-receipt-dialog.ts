@@ -2,17 +2,20 @@ import {
   Component,
   ElementRef,
   ViewEncapsulation,
+  computed,
   inject,
   input,
   model,
   signal,
   viewChild,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ButtonModule } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
 import { FiscalReceiptData, downloadFiscalReceipt } from '../../../core/docs/fiscal-receipt-doc';
 import { NotifyService } from '../../../core/notify/notify.service';
+import { SettingsService } from '../../../core/data/settings.service';
 import { Icon } from '../icon/icon';
 
 /**
@@ -82,8 +85,12 @@ const RECEIPT_CSS = `
           <div class="overflow-x-auto rounded-xl border border-line bg-subtle p-3 max-sm:p-1.5">
             <div #sheet class="fr-sheet rounded-md shadow-sm">
               <div class="fr-head">
-                <div class="fr-org">ЧП «BEST HOUSE SERVICES»</div>
-                <div class="fr-hotel">Hotel “AVESTO”</div>
+                @if (head().org) {
+                  <div class="fr-org">{{ head().org }}</div>
+                }
+                @if (head().hotel) {
+                  <div class="fr-hotel">{{ head().hotel }}</div>
+                }
               </div>
               <div class="fr-title">ACCOUNT / СЧЁТ № {{ r.number }}</div>
               <div class="fr-date">Date / Дата: {{ r.date }}</div>
@@ -156,6 +163,15 @@ const RECEIPT_CSS = `
 })
 export class FiscalReceiptDialog {
   private readonly notify = inject(NotifyService);
+  private readonly settings = inject(SettingsService);
+  private readonly header = toSignal(this.settings.receiptHeader());
+
+  /** Шапка всегда из актуальных настроек; пока они грузятся — то, что сохранено в чеке. */
+  protected readonly head = computed(() => {
+    const h = this.header();
+    const r = this.receipt();
+    return { org: h?.org || r?.org || '', hotel: h?.hotel || r?.hotel || '' };
+  });
 
   readonly visible = model(false);
   readonly receipt = input<FiscalReceiptData | null>(null);
@@ -209,7 +225,7 @@ export class FiscalReceiptDialog {
       return;
     }
     this.downloading.set(true);
-    downloadFiscalReceipt(r)
+    downloadFiscalReceipt({ ...r, ...this.head() })
       .then(() => this.downloading.set(false))
       .catch(() => {
         this.downloading.set(false);

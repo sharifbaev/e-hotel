@@ -22,6 +22,8 @@ interface MoreLink {
   section: AppSection;
   /** Показывать счётчик новых комментариев. */
   commentsBadge?: boolean;
+  /** Только владелец. */
+  ownerOnly?: boolean;
 }
 
 const LINKS: MoreLink[] = [
@@ -61,6 +63,25 @@ const LINKS: MoreLink[] = [
     bg: '#EDE9FE',
     fg: '#5B21B6',
     section: 'users',
+  },
+  {
+    path: '/references',
+    label: 'nav.references',
+    hint: 'more.referencesHint',
+    icon: 'list-search',
+    bg: '#E6F4F2',
+    fg: '#0B5A54',
+    section: 'settings',
+  },
+  {
+    path: '/audit-log',
+    label: 'nav.auditLog',
+    hint: 'more.auditLogHint',
+    icon: 'clock',
+    bg: '#FEF0C7',
+    fg: '#93370D',
+    section: 'settings',
+    ownerOnly: true,
   },
   {
     path: '/settings',
@@ -206,7 +227,7 @@ export class MorePage {
   protected readonly comments = inject(CommentsService);
   protected readonly logoutOpen = signal(false);
   protected readonly links = computed(() =>
-    LINKS.filter((l) => this.auth.can(l.section)),
+    LINKS.filter((l) => this.auth.can(l.section) && (!l.ownerOnly || this.auth.isOwner())),
   );
   protected readonly userInitials = computed(() => initials(this.auth.user()?.name ?? ''));
 

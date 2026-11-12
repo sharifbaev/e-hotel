@@ -52,6 +52,9 @@ export class AuthService {
     return role === 'owner' || role === 'admin';
   });
 
+  /** Владелец: журнал действий доступен только ему. */
+  readonly isOwner = computed(() => this.user()?.role === 'owner');
+
   /**
    * Разделы меню, доступные пользователю: с сервера (CurrentUser.sections),
    * иначе — доступ системной роли по умолчанию. Владельцу — всё.

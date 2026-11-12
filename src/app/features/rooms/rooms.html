@@ -425,8 +425,6 @@
           </dd>
           <dt class="text-muted">{{ 'rooms.guest.checkin' | transloco }}</dt>
           <dd class="m-0 font-medium">{{ g.checkin | dayMonth: { time: true } }}</dd>
-          <dt class="text-muted">{{ 'rooms.guest.checkout' | transloco }}</dt>
-          <dd class="m-0 font-medium">{{ g.checkout | dayMonth: { time: true } }}</dd>
           <dt class="text-muted">{{ 'rooms.guest.sum' | transloco }}</dt>
           <dd class="m-0 font-semibold">{{ g.sum | sum }} {{ 'common.currency' | transloco }}</dd>
           <dt class="text-muted">{{ 'rooms.guest.payment' | transloco }}</dt>
@@ -438,7 +436,7 @@
             </dd>
           }
         </dl>
-        <!-- Выселить, Продлить и (если есть места) Добавить гостя — в один ряд -->
+        <!-- Выселить и (если есть места) Добавить гостя — в один ряд -->
         <div class="flex gap-2 pt-1">
           <button
             pButton
@@ -451,18 +449,6 @@
           >
             <app-icon name="checkout" />
             <span pButtonLabel>{{ 'rooms.checkout' | transloco }}</span>
-          </button>
-          <button
-            pButton
-            type="button"
-            severity="secondary"
-            [outlined]="true"
-            class="min-w-0 flex-1 !px-2"
-            [disabled]="actionBusy()"
-            (click)="openExtend(room)"
-          >
-            <app-icon name="calendar-plus" />
-            <span pButtonLabel>{{ 'rooms.extend' | transloco }}</span>
           </button>
           @if (freeBeds(room) > 0) {
             <button
@@ -604,14 +590,21 @@
       />
     </div>
     <div class="flex flex-col gap-1.5">
-      <label for="n-beds" class="field-label">{{ 'rooms.form.beds' | transloco }}</label>
-      <p-select
-        inputId="n-beds"
+      <label for="n-beds" class="field-label"
+        >{{ 'rooms.form.beds' | transloco }} <span class="req">*</span></label
+      >
+      <input
+        id="n-beds"
+        pInputText
+        appDigits="2"
         formControlName="beds"
-        [options]="bedOptions"
-        appendTo="body"
-        [fluid]="true"
+        placeholder="2"
+        [invalid]="bedsInvalid()"
+        [attr.aria-invalid]="bedsInvalid()"
       />
+      @if (bedsInvalid()) {
+        <span class="text-xs text-danger">{{ 'rooms.form.bedsInvalid' | transloco }}</span>
+      }
     </div>
     <div class="col-span-full flex flex-col gap-1.5">
       <label for="n-price" class="field-label">{{ 'rooms.form.price' | transloco }}</label>
@@ -660,258 +653,8 @@
   </ng-template>
 </p-dialog>
 
-<!-- Продление -->
-<p-dialog
-  [(visible)]="extendOpen"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
-  [header]="'rooms.extendTitle' | transloco"
-  [style]="{ width: '420px', maxWidth: 'calc(100vw - 32px)' }"
-  styleClass="hs-dialog"
-  [closeAriaLabel]="'common.close' | transloco"
->
-  @if (selected(); as room) {
-    <div class="flex flex-col gap-1.5">
-      <label for="ext-date" class="field-label">{{ 'rooms.extendNewCheckout' | transloco }}</label>
-      <p-datepicker
-        inputId="ext-date"
-        [ngModel]="extendDate()"
-        (ngModelChange)="extendDate.set($event)"
-        [showTime]="true"
-        hourFormat="24"
-        dateFormat="dd.mm.yy"
-        [fluid]="true"
-        appendTo="body"
-      />
-      <span class="hint">{{
-        'rooms.extendHint' | transloco: { name: guestNames(room) }
-      }}</span>
-    </div>
-  }
-  <ng-template #footer>
-    <button
-      pButton
-      type="button"
-      severity="secondary"
-      [outlined]="true"
-      (click)="extendOpen.set(false)"
-    >
-      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
-    </button>
-    @if (selected(); as room) {
-      <button pButton type="button" [loading]="actionBusy()" (click)="saveExtend(room)">
-        <span pButtonLabel>{{ 'common.save' | transloco }}</span>
-      </button>
-    }
-  </ng-template>
-</p-dialog>
-
-<!-- Выселение (закрытие клиента): гости, сумма, фискальный чек, чёрный список -->
-<p-dialog
-  [(visible)]="checkoutOpen"
-  [modal]="true"
-  [draggable]="false"
-  [resizable]="false"
-  [header]="'rooms.checkoutTitle' | transloco: { room: checkoutRoom()?.number ?? '' }"
-  [style]="{ width: '480px', maxWidth: 'calc(100vw - 32px)' }"
-  [contentStyle]="{ maxHeight: 'calc(100dvh - 210px)' }"
-  styleClass="hs-dialog"
-  [closeAriaLabel]="'common.close' | transloco"
->
-  @if (checkoutRoom(); as room) {
-    <div class="flex flex-col gap-4">
-      @if (room.guests.length > 1) {
-        <div class="flex flex-col gap-3">
-          <p class="m-0 text-sm leading-relaxed text-ink-2">{{ 'rooms.checkoutPick' | transloco }}</p>
-          <label
-            for="co-all"
-            class="flex min-h-11 cursor-pointer items-center gap-3 border-b border-line-2 pb-2 text-sm font-semibold text-ink"
-          >
-            <p-checkbox
-              inputId="co-all"
-              [binary]="true"
-              [ngModel]="checkoutAll()"
-              (ngModelChange)="toggleAllGuests($event)"
-            />
-            {{ 'rooms.checkoutAll' | transloco }}
-          </label>
-          <ul class="m-0 flex list-none flex-col gap-2 p-0">
-            @for (g of room.guests; track g.doc; let i = $index) {
-              <li>
-                <label
-                  [attr.for]="'co-' + i"
-                  class="flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors"
-                  [class]="isChecked(g.doc) ? 'border-danger-line bg-danger-soft' : 'border-line bg-white'"
-                >
-                  <p-checkbox
-                    [inputId]="'co-' + i"
-                    [binary]="true"
-                    [ngModel]="isChecked(g.doc)"
-                    (ngModelChange)="toggleGuest(g.doc, $event)"
-                  />
-                  <span
-                    class="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white"
-                    aria-hidden="true"
-                    >{{ guestInitials(g.name) }}</span
-                  >
-                  <span class="flex min-w-0 flex-col gap-0.5">
-                    <span class="truncate text-sm font-semibold text-ink">{{ g.name }}</span>
-                    <span class="text-xs text-muted">{{ g.doc }}</span>
-                  </span>
-                </label>
-              </li>
-            }
-          </ul>
-        </div>
-      } @else if (room.guests[0]; as g) {
-        <div class="flex items-center gap-3 rounded-xl bg-subtle p-3.5">
-          <span
-            class="flex size-11 shrink-0 items-center justify-center rounded-full bg-accent text-[15px] font-semibold text-white"
-            aria-hidden="true"
-            >{{ guestInitials(g.name) }}</span
-          >
-          <span class="flex min-w-0 flex-col gap-0.5">
-            <span class="truncate text-[15px] font-semibold">{{ g.name }}</span>
-            <span class="text-[13px] text-muted"
-              >{{ g.doc }} · {{ g.checkin | dayMonth }} → {{ lastCheckout(room) | dayMonth }}</span
-            >
-          </span>
-        </div>
-      }
-
-      <!-- Оплата и фискальный чек -->
-      <div class="field">
-        <label for="co-sum" class="field-label">{{ 'rooms.checkoutAmount' | transloco }}</label>
-        <div class="relative">
-          <input
-            id="co-sum"
-            pInputText
-            appSum
-            placeholder="0"
-            class="w-full pr-12"
-            [ngModel]="checkoutAmount()"
-            (ngModelChange)="setAmount($event)"
-            aria-describedby="co-sum-hint"
-          />
-          <span
-            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
-            >{{ 'common.currency' | transloco }}</span
-          >
-        </div>
-        <span id="co-sum-hint" class="hint">{{ 'rooms.checkoutAmountHint' | transloco }}</span>
-      </div>
-      @if (receipt(); as num) {
-        <div
-          class="rise flex items-center gap-3 rounded-xl border border-[#ABEFC6] bg-[#ECFDF3] p-3 text-sm text-success"
-          role="status"
-        >
-          <app-icon name="check-circle" [size]="20" />
-          <span class="flex min-w-0 flex-1 flex-col">
-            <span class="font-semibold">{{ 'rooms.receiptDone' | transloco: { number: num } }}</span>
-            <span class="text-xs text-ink-2"
-              >{{ checkoutAmount() | sum }} {{ 'common.currency' | transloco }}</span
-            >
-          </span>
-          <button
-            pButton
-            type="button"
-            severity="secondary"
-            [outlined]="true"
-            class="h-9 shrink-0 bg-white"
-            [attr.aria-label]="'rooms.receiptShow' | transloco"
-            [title]="'rooms.receiptShow' | transloco"
-            (click)="showReceipt()"
-          >
-            <app-icon name="eye" [size]="16" />
-            <span pButtonLabel class="max-sm:hidden">{{ 'rooms.receiptShowShort' | transloco }}</span>
-          </button>
-        </div>
-      } @else {
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          [outlined]="true"
-          class="h-11"
-          [loading]="receiptBusy()"
-          (click)="generateReceipt()"
-        >
-          @if (!receiptBusy()) {
-            <app-icon name="receipt" />
-          }
-          <span pButtonLabel>{{ 'rooms.receiptGenerate' | transloco }}</span>
-        </button>
-      }
-
-      <!-- Чёрный список -->
-      <div
-        class="flex flex-col gap-3 rounded-xl border p-3 transition-colors"
-        [class]="toBlacklist() ? 'border-danger-line bg-danger-soft' : 'border-line bg-white'"
-      >
-        <label for="co-bl" class="flex cursor-pointer items-center gap-3 text-sm font-semibold text-ink">
-          <p-checkbox
-            inputId="co-bl"
-            [binary]="true"
-            [ngModel]="toBlacklist()"
-            (ngModelChange)="toBlacklist.set($event)"
-          />
-          <span class="flex flex-col gap-0.5">
-            {{ 'rooms.checkoutBlacklist' | transloco }}
-            <span class="text-xs font-normal text-muted">{{
-              (checkoutDocs().length > 1 ? 'rooms.checkoutBlacklistMany' : 'rooms.checkoutBlacklistHint')
-                | transloco
-            }}</span>
-          </span>
-        </label>
-        @if (toBlacklist()) {
-          <div class="rise field">
-            <label for="co-reason" class="field-label"
-              >{{ 'blacklist.reason' | transloco }} <span class="req">*</span></label
-            >
-            <textarea
-              id="co-reason"
-              pTextarea
-              rows="3"
-              class="w-full resize-none bg-white"
-              [placeholder]="'blacklist.reasonPlaceholder' | transloco"
-              [ngModel]="blacklistReason()"
-              (ngModelChange)="blacklistReason.set($event)"
-              [invalid]="reasonInvalid()"
-              [attr.aria-invalid]="reasonInvalid()"
-            ></textarea>
-          </div>
-        }
-      </div>
-    </div>
-  }
-  <ng-template #footer>
-    <button
-      pButton
-      type="button"
-      severity="secondary"
-      [outlined]="true"
-      (click)="checkoutOpen.set(false)"
-    >
-      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
-    </button>
-    <button
-      pButton
-      type="button"
-      severity="danger"
-      [loading]="actionBusy()"
-      [disabled]="checkoutDocs().length === 0"
-      (click)="confirmCheckout()"
-    >
-      @if (!actionBusy()) {
-        <app-icon name="checkout" />
-      }
-      <span pButtonLabel>{{
-        'rooms.checkoutSubmit' | transloco: { count: checkoutDocs().length }
-      }}</span>
-    </button>
-  </ng-template>
-</p-dialog>
+<!-- Выселение (закрытие клиента): общее окно, используется и в «Книге» -->
+<app-checkout-dialog (checkedOut)="replace($event)" />
 
 <!-- QR-код номера для комментариев гостей -->
 <app-room-qr
@@ -957,8 +700,6 @@
   </app-sheet>
 }
 
-<!-- Сформированный при выселении чек: просмотр, скачать, печать -->
-<app-fiscal-receipt-dialog [(visible)]="receiptOpen" [receipt]="receiptView()" />
 
 <!-- Удаление номера -->
 <app-confirm-dialog

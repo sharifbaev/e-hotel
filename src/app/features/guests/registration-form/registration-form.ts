@@ -22,15 +22,17 @@ import {
   Sex,
   VisaType,
   VisitPurpose,
+  MIXED_PAYMENT,
 } from '../../../core/models';
 import {
-  addDays,
   isoToLocalDate,
   localDateTimeToIso,
   localDateToIso,
 } from '../../../shared/format/format';
 import { formatDocInput } from '../../../shared/format/format';
 import { SumInputDirective } from '../../../shared/forms/sum-input.directive';
+import { PayLabelPipe } from '../../../shared/format/pay-label.pipe';
+import { PaymentTypesService } from '../../../core/data/payment-types.service';
 import { Icon } from '../../../shared/ui/icon/icon';
 
 /** Счётчик экземпляров: уникальные id полей, когда на экране несколько форм (табы гостей). */
@@ -43,7 +45,6 @@ type RequiredField = (typeof REQUIRED)[number];
 export interface RegStay {
   room: string;
   checkin: Date | null;
-  checkout: Date | null;
   purpose: VisitPurpose;
 }
 
@@ -69,6 +70,7 @@ export type RegCheck =
     Select,
     Icon,
     SumInputDirective,
+    PayLabelPipe,
   ],
   templateUrl: './registration-form.html',
 })
@@ -79,6 +81,7 @@ export class RegistrationForm {
   private readonly blacklist = inject(BlacklistService);
   private readonly notify = inject(NotifyService);
   private readonly today = inject(APP_TODAY);
+  private readonly payTypes = inject(PaymentTypesService);
 
   /** Номер комнаты, выбранный заранее (из карточки номера). */
   readonly presetRoom = input<string | null>(null);
@@ -109,7 +112,13 @@ export class RegistrationForm {
   protected readonly docTypes: DocType[] = ['bio_passport', 'id_card', 'foreign_passport'];
   protected readonly sexes: Sex[] = ['male', 'female'];
   protected readonly purposes: VisitPurpose[] = ['tourism', 'business', 'private'];
-  protected readonly payments: PaymentMethod[] = ['cash', 'uzcard', 'visa', 'transfer', 'unpaid'];
+  /** Типы оплаты из справочника «Настройки → Справочники → Типы оплаты». */
+  protected readonly payments = computed<PaymentMethod[]>(() =>
+    this.payTypes
+      .items()
+      .map((t) => t.code)
+      .filter((c) => c !== MIXED_PAYMENT),
+  );
   protected readonly visas: VisaType[] = ['visa_free', 'tourist', 'business'];
 
   /** Свободные номера и занятые, где ещё есть места (подселение). */
@@ -146,7 +155,6 @@ export class RegistrationForm {
     entryPoint: [''],
     room: ['', Validators.required],
     checkin: this.fb.control<Date | null>(null),
-    checkout: this.fb.control<Date | null>(null),
     purpose: this.fb.control<VisitPurpose>('tourism'),
     amount: this.fb.control<number | null>(null, Validators.required),
     payment: this.fb.control<PaymentMethod>('unpaid'),
@@ -157,6 +165,7 @@ export class RegistrationForm {
   });
 
   constructor() {
+    this.payTypes.ensureLoaded();
     effect(() => {
       const room = this.presetRoom();
       if (room) {
@@ -187,7 +196,7 @@ export class RegistrationForm {
   /** Текущие данные проживания (для нового таба). */
   stay(): RegStay {
     const v = this.form.getRawValue();
-    return { room: v.room, checkin: v.checkin, checkout: v.checkout, purpose: v.purpose };
+    return { room: v.room, checkin: v.checkin, purpose: v.purpose };
   }
 
   protected invalid(name: RequiredField): boolean {
@@ -287,16 +296,14 @@ export class RegistrationForm {
       entryPoint: this.foreign() ? v.entryPoint : '',
       room: v.room,
       checkin: localDateTimeToIso(v.checkin) ?? `${this.today}T14:00`,
-      checkout: localDateTimeToIso(v.checkout) ?? `${this.today}T12:00`,
+      // Дата выезда в форме не указывается — сервер ставит её при выселении.
+      checkout: null,
       purpose: v.purpose,
       amount: v.amount ?? 0,
       payment: v.payment,
       fiscalReceipt: v.fiscalReceipt,
       sendEmehmon: this.foreign() && v.sendEmehmon,
     };
-    if (data.checkout <= data.checkin) {
-      return { ok: false, title: 'guests.reg.datesTitle', text: 'guests.reg.datesText' };
-    }
     return { ok: true, data };
   }
 
@@ -383,7 +390,6 @@ export class RegistrationForm {
       entryPoint: r.entryPoint,
       room: r.room,
       checkin: isoToLocalDate(r.checkin),
-      checkout: isoToLocalDate(r.checkout),
       purpose: r.purpose,
       amount: r.amount,
       payment: r.payment,
@@ -395,7 +401,6 @@ export class RegistrationForm {
   private resetDates(): void {
     this.form.patchValue({
       checkin: isoToLocalDate(`${this.today}T14:00`),
-      checkout: isoToLocalDate(`${addDays(this.today, 4)}T12:00`),
     });
   }
 }

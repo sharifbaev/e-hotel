@@ -21,6 +21,12 @@ export const adminGuard: CanActivateFn = () => {
   return auth.isAdmin() || inject(Router).createUrlTree(['/dashboard']);
 };
 
+/** «Журнал действий» — только владелец. */
+export const ownerGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.isOwner() || inject(Router).parseUrl(auth.homePath());
+};
+
 /** Раздел меню доступен роли пользователя, иначе — на первый доступный раздел. */
 export function sectionGuard(section: AppSection): CanActivateFn {
   return () => {

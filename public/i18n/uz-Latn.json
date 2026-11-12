@@ -87,6 +87,15 @@
     "serviceTypes": {
       "exists": "Bunday xizmat turi allaqachon bor.",
       "notFound": "Xizmat turi topilmadi."
+    },
+    "paymentTypes": {
+      "exists": "Bunday to‘lov usuli allaqachon bor.",
+      "notFound": "To‘lov usuli topilmadi.",
+      "system": "Tizim to‘lov usulini o‘zgartirib yoki o‘chirib bo‘lmaydi.",
+      "inUse": "Bu to‘lov usuli yashayotgan mehmonlarda ko‘rsatilgan — o‘chirib bo‘lmaydi."
+    },
+    "checkout": {
+      "paymentSplit": "Karta va naqd summalari yig‘indisi umumiy summaga teng bo‘lishi kerak."
     }
   },
   "nav": {
@@ -105,7 +114,9 @@
     "book": "Kitob",
     "blacklist": "Qora ro‘yxat",
     "payments": "To‘lovlar va xarajatlar",
-    "paymentsShort": "To‘lovlar"
+    "paymentsShort": "To‘lovlar",
+    "references": "Ma’lumotnomalar",
+    "auditLog": "Harakatlar jurnali"
   },
   "shell": {
     "notifications": "Bildirishnomalar",
@@ -222,7 +233,9 @@
       "checkoutToday": "Bugun ketadi",
       "free": "Joylashtirishga tayyor",
       "clean": "Tozalashni kutmoqda",
-      "repair": "Ta’mirda"
+      "repair": "Ta’mirda",
+      "checkin": "Kelgan: {{date}}",
+      "checkinToday": "Bugun kelgan"
     },
     "emptyTitle": "Bunday filtr bilan xonalar yo‘q",
     "emptyText": "Boshqa holat yoki qavatni tanlang",
@@ -260,7 +273,8 @@
       "qrHintCreate": "Saqlangandan so‘ng QR-kod yaratiladi — uni chop etib, xonaga joylashtiring.",
       "qrHintKeep": "QR-kod allaqachon yaratilgan. Mehmonlar uni skanerlab izoh qoldirishadi.",
       "qrHintOff": "QR-kod o‘chiriladi: eski kod endi izoh qabul qilmaydi.",
-      "qrOffline": "Server bilan aloqa yo‘q — hozir QR-kodni o‘zgartirib bo‘lmaydi."
+      "qrOffline": "Server bilan aloqa yo‘q — hozir QR-kodni o‘zgartirib bo‘lmaydi.",
+      "bedsInvalid": "Joylar sonini raqamda kiriting (1 dan 99 gacha)."
     },
     "toast": {
       "checkedOutTitle": "Mehmon arxivga o‘tkazildi",
@@ -323,7 +337,10 @@
     "confirmDelete": {
       "title": "Xona o‘chirilsinmi?",
       "text": "{{room}}-xona xonalar fondidan o‘chiriladi."
-    }
+    },
+    "checkoutPayment": "To‘lov usuli",
+    "paidCard": "Karta orqali",
+    "paidCash": "Naqd pul"
   },
   "pay": {
     "paid": "To‘langan",
@@ -473,6 +490,7 @@
     "uzcard": "Uzcard / Humo kartasi",
     "visa": "Visa / Mastercard",
     "transfer": "O‘tkazma (yuridik shaxs)",
+    "mixed": "Aralash (karta + naqd)",
     "unpaid": "To‘lanmagan"
   },
   "countries": {
@@ -773,7 +791,9 @@
       "checkoutTime": "Ketish vaqti",
       "defaultLang": "Standart til",
       "currency": "Valyuta",
-      "currencyValue": "So‘m (UZS)"
+      "currencyValue": "So‘m (UZS)",
+      "nameHint": "Chekda: Hotel “Nomi”",
+      "legalNameHint": "Chekda: ЧП «Yuridik nomi»"
     },
     "rates": {
       "title": "Toifalar va asosiy tariflar",
@@ -799,7 +819,7 @@
     },
     "log": {
       "title": "Amallar jurnali",
-      "subtitle": "Tizimda kim nimani o‘zgartirgan — smenalarni nazorat qilish uchun",
+      "subtitle": "Xodimlarning barcha amallari: joylashtirish, chiqarish, qo‘shish, o‘zgartirish, o‘chirish, tizimga kirish",
       "from": "Sanadan",
       "who": "Xodim",
       "allStaff": "Barcha xodimlar",
@@ -811,13 +831,143 @@
         "ready": "{{room}}-xona tozalashdan so‘ng tayyor deb belgilandi",
         "bookingEdit": "{{guest}} broni o‘zgartirildi: ketish {{change}}",
         "tariffEdit": "«{{category}}» tarifi o‘zgartirildi: {{change}} so‘m",
-        "expense": "xarajat qo‘shildi: «{{reason}}» — {{sum}} so‘m",
-        "block": "{{user}} foydalanuvchisi bloklandi"
+        "expense": {
+          "create": "«{{target}}» xarajatini qo‘shdi — {{sum}} so‘m",
+          "update": "«{{target}}» xarajatini o‘zgartirdi",
+          "delete": "«{{target}}» xarajatini o‘chirdi"
+        },
+        "block": "{{user}} foydalanuvchisi bloklandi",
+        "auth": {
+          "login": "tizimga kirdi",
+          "logout": "tizimdan chiqdi",
+          "password": "o‘z parolini o‘zgartirdi"
+        },
+        "guest": {
+          "checkin": "{{target}} mehmonini {{room}}-xonaga joylashtirdi",
+          "checkout": "{{target}} mehmonini {{room}}-xonadan chiqardi",
+          "update": "{{target}} mehmon ma’lumotlarini o‘zgartirdi",
+          "move": "{{target}} mehmonini {{room}}-xonaga ko‘chirdi",
+          "blacklist": "{{target}} mehmonini qora ro‘yxatga qo‘shdi"
+        },
+        "blacklist": {
+          "create": "{{target}}ni qora ro‘yxatga qo‘shdi",
+          "update": "qora ro‘yxat yozuvini o‘zgartirdi: {{target}}",
+          "delete": "{{target}}ni qora ro‘yxatdan o‘chirdi"
+        },
+        "room": {
+          "create": "{{target}}-xonani qo‘shdi",
+          "update": "{{target}}-xonani o‘zgartirdi",
+          "delete": "{{target}}-xonani o‘chirdi",
+          "ready": "{{target}}-xonani tozalashdan keyin tayyor deb belgiladi",
+          "repair": "{{target}}-xonani ta’mirga yubordi",
+          "repairDone": "{{target}}-xona ta’mirini yakunladi",
+          "qr": "{{target}}-xona QR-kodini o‘zgartirdi"
+        },
+        "category": {
+          "create": "«{{target}}» toifasini qo‘shdi",
+          "update": "«{{target}}» toifasini o‘zgartirdi",
+          "delete": "«{{target}}» toifasini o‘chirdi"
+        },
+        "extraService": {
+          "create": "«{{target}}» qo‘shimcha xizmatini qo‘shdi — {{sum}} so‘m",
+          "update": "«{{target}}» qo‘shimcha xizmatini o‘zgartirdi",
+          "delete": "«{{target}}» qo‘shimcha xizmatini o‘chirdi"
+        },
+        "debt": {
+          "create": "qarz qo‘shdi: {{target}} — {{sum}} so‘m",
+          "update": "qarzni o‘zgartirdi: {{target}}",
+          "delete": "qarzni o‘chirdi: {{target}}"
+        },
+        "receipt": {
+          "create": "№ {{target}} fiskal chekni shakllantirdi"
+        },
+        "user": {
+          "create": "{{target}} foydalanuvchisini qo‘shdi",
+          "update": "{{target}} foydalanuvchisini o‘zgartirdi",
+          "delete": "{{target}} foydalanuvchisini o‘chirdi",
+          "block": "{{target}} foydalanuvchisini blokladi",
+          "unblock": "{{target}} foydalanuvchisini blokdan chiqardi",
+          "resetPassword": "{{target}} foydalanuvchisining parolini tikladi"
+        },
+        "role": {
+          "create": "«{{target}}» rolini qo‘shdi",
+          "update": "«{{target}}» rolini o‘zgartirdi",
+          "delete": "«{{target}}» rolini o‘chirdi"
+        },
+        "serviceType": {
+          "create": "«{{target}}» xizmat turini qo‘shdi",
+          "update": "«{{target}}» xizmat turini o‘zgartirdi",
+          "delete": "«{{target}}» xizmat turini o‘chirdi"
+        },
+        "paymentType": {
+          "create": "«{{target}}» to‘lov turini qo‘shdi",
+          "update": "«{{target}}» to‘lov turini o‘zgartirdi",
+          "delete": "«{{target}}» to‘lov turini o‘chirdi"
+        },
+        "comment": {
+          "update": "{{room}}-xona izohi holatini o‘zgartirdi",
+          "delete": "{{room}}-xona izohini o‘chirdi"
+        },
+        "settings": {
+          "hotel": "mehmonxona sozlamalarini o‘zgartirdi"
+        }
       },
       "col": {
         "who": "Xodim",
         "action": "Harakat",
-        "at": "Sana va vaqt"
+        "at": "Sana va vaqt",
+        "group": "Bo‘lim"
+      },
+      "fields": "o‘zgardi: {{fields}}",
+      "group": {
+        "auth": "Kirish",
+        "guest": "Mehmonlar",
+        "blacklist": "Qora ro‘yxat",
+        "room": "Xonalar",
+        "category": "Toifalar",
+        "expense": "Xarajatlar",
+        "extraService": "Qo‘shimcha xizmatlar",
+        "debt": "Qarzlar",
+        "receipt": "Cheklar",
+        "user": "Foydalanuvchilar",
+        "role": "Rollar",
+        "serviceType": "Xizmat turlari",
+        "paymentType": "To‘lov turlari",
+        "comment": "Izohlar",
+        "settings": "Sozlamalar"
+      },
+      "field": {
+        "name": "nomi",
+        "number": "raqam",
+        "floor": "qavat",
+        "category": "toifa",
+        "beds": "joylar",
+        "price": "narx",
+        "amount": "summa",
+        "sum": "summa",
+        "reason": "sabab",
+        "date": "sana",
+        "room": "xona",
+        "payment": "to‘lov",
+        "checkin": "kelish",
+        "phone": "telefon",
+        "lastName": "familiya",
+        "firstName": "ism",
+        "middleName": "otasining ismi",
+        "doc": "hujjat",
+        "role": "rol",
+        "sections": "ruxsat",
+        "status": "holat",
+        "legalName": "yuridik nomi",
+        "address": "manzil",
+        "inn": "STIR",
+        "city": "shahar",
+        "login": "login",
+        "fullName": "F.I.Sh.",
+        "debtor": "qarzdor",
+        "serviceTypeId": "xizmat turi",
+        "who": "kim rasmiylashtirdi",
+        "qr": "QR-kod"
       }
     },
     "unsaved": "Saqlanmagan o‘zgarishlar bor",
@@ -890,12 +1040,39 @@
         "deletedText": "«{{name}}» ro‘yxatdan o‘chirildi.",
         "exists": "«{{name}}» ro‘yxatda allaqachon bor."
       }
+    },
+    "paymentTypes": {
+      "title": "To‘lov usuli",
+      "subtitle": "Joylashtirish va chiqarishdagi «To‘lov usuli» maydoni hamda «Kitob»dagi filtr uchun ro‘yxat. Tizim usullarini o‘zgartirib yoki o‘chirib bo‘lmaydi.",
+      "add": "Usul qo‘shish",
+      "addTitle": "Yangi to‘lov usuli",
+      "editTitle": "To‘lov usulini o‘zgartirish",
+      "empty": "Birinchi to‘lov usulini qo‘shing.",
+      "system": "tizim",
+      "col": {
+        "name": "Nomi"
+      },
+      "form": {
+        "name": "Nomi",
+        "namePlaceholder": "Masalan: Click / Payme"
+      },
+      "confirmTitle": "To‘lov usuli o‘chirilsinmi?",
+      "confirmText": "«{{name}}» ro‘yxatdan olib tashlanadi.",
+      "toast": {
+        "required": "Nomini kiriting.",
+        "addedTitle": "To‘lov usuli qo‘shildi",
+        "addedText": "«{{name}}» ro‘yxatga qo‘shildi.",
+        "updatedText": "«{{name}}» saqlandi.",
+        "deletedTitle": "To‘lov usuli o‘chirildi",
+        "deletedText": "«{{name}}» ro‘yxatdan o‘chirildi.",
+        "exists": "«{{name}}» ro‘yxatda allaqachon bor."
+      }
     }
   },
   "more": {
     "sections": "Qo‘shimcha bo‘limlar",
     "usersHint": "Xodimlar va rollar",
-    "settingsHint": "Mehmonxona, tariflar, jurnal",
+    "settingsHint": "Mehmonxona ma’lumotlari, kelish va ketish vaqti",
     "uikitHint": "Tugmalar, maydonlar, holatlar, oynalar",
     "logout": "Hisobdan chiqish",
     "logoutTitle": "Hisobdan chiqilsinmi?",
@@ -903,7 +1080,9 @@
     "version": "HotelOS · {{version}} versiya",
     "commentsHint": "Mehmonlar fikrlari (QR-kod orqali)",
     "guestsHint": "Ketgan mehmonlar arxivi",
-    "blacklistHint": "Joylashtirish rad etilgan mehmonlar"
+    "blacklistHint": "Joylashtirish rad etilgan mehmonlar",
+    "referencesHint": "Tariflar, rollar, xizmatlar, to‘lov",
+    "auditLogHint": "Xodimlarning barcha amallari"
   },
   "uikit": {
     "title": "HotelOS UI-komponentlari",
@@ -1309,5 +1488,19 @@
     "doneText": "Endi yangi parol bilan kiring.",
     "show": "Parolni ko‘rsatish",
     "hide": "Parolni yashirish"
+  },
+  "references": {
+    "title": "Ma’lumotnomalar",
+    "tabs": {
+      "categories": "Toifalar va tariflar",
+      "roles": "Rollar",
+      "serviceTypes": "Qo‘shimcha xizmat turlari",
+      "paymentTypes": "To‘lov usuli"
+    }
+  },
+  "paymentShort": {
+    "mixed": "Aralash",
+    "card": "Karta",
+    "cash": "Naqd"
   }
 }

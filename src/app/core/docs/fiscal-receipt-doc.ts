@@ -6,6 +6,9 @@ import { sumInWords } from '../../shared/format/sum-in-words';
  * два экземпляра на листе). Значения подставляются в оба экземпляра.
  */
 export interface FiscalReceiptData {
+  /** Шапка бланка: юр. лицо и название гостиницы — из «Настройки → Отель» (при показе подставляются актуальные). */
+  org?: string;
+  hotel?: string;
   number: string;
   date: string;
   /** Гость (если гостей несколько — «Фамилия Имя (+2)»). */
@@ -25,7 +28,7 @@ export const FISCAL_TEMPLATE_URL = 'templates/fiscal-receipt.docx';
 
 /**
  * Формирует Word-документ по шаблону и скачивает его.
- * Теги шаблона: {number} {date} {guests} {company} {room} {checkin} {checkout}
+ * Теги шаблона: {org} {hotel} {number} {date} {guests} {company} {room} {checkin} {checkout}
  * {amount} {amountWords} {cashier}, строки услуг — {#items}{name} {qty} {price} {sum}{/items}.
  * Чтобы поменять бланк, замените .docx, сохранив теги.
  */
@@ -78,11 +81,15 @@ export function buildStayReceipt(o: {
   room: string;
   category: string;
   checkin: string;
-  checkout: string;
+  /** null — гость ещё не выселен: количество ночей 1, графа «Выезд» пустая. */
+  checkout: string | null;
   amount: number;
   cashier: string;
+  /** Шапка бланка из настроек гостиницы. */
+  org?: string;
+  hotel?: string;
 }): FiscalReceiptData {
-  const nights = nightsBetween(o.checkin, o.checkout);
+  const nights = o.checkout ? nightsBetween(o.checkin, o.checkout) : 1;
   return {
     number: o.number,
     date: formatDmy(o.date),
@@ -90,7 +97,9 @@ export function buildStayReceipt(o: {
     company: '_'.repeat(28),
     room: o.room,
     checkin: formatDmy(o.checkin),
-    checkout: formatDmy(o.checkout),
+    checkout: o.checkout ? formatDmy(o.checkout) : '',
+    org: o.org ?? '',
+    hotel: o.hotel ?? '',
     items: [
       {
         name: o.category ? `Проживание · ${o.category}` : 'Проживание',

@@ -1,4 +1,4 @@
-import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource, toSignal } from '@angular/core/rxjs-interop';
 import {
   FormsModule,
@@ -19,7 +19,7 @@ import { map, startWith } from 'rxjs';
 import { ApiError } from '../../core/api/mock-api';
 import { SettingsService } from '../../core/data/settings.service';
 import { LanguageService } from '../../core/i18n/language.service';
-import { ActionLogEntry, LogAction, HotelSettings, Lang, RoomCategory } from '../../core/models';
+import { ActionLogEntry, HotelSettings, Lang, RoomCategory } from '../../core/models';
 import { NotifyService } from '../../core/notify/notify.service';
 import { formatDateTime, formatSum } from '../../shared/format/format';
 import { SumPipe } from '../../shared/format/format.pipes';
@@ -31,18 +31,51 @@ import { ConfirmDialog } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { Icon } from '../../shared/ui/icon/icon';
 import { RolesSection } from './roles-section';
 import { ServiceTypesSection } from './service-types-section';
+import { PaymentTypesSection } from './payment-types-section';
 
-type SettingsTab = 'hotel' | 'rates' | 'log';
+/** Какой экран показывает страница (data.view маршрута): /settings, /references, /audit-log. */
+type SettingsView = 'settings' | 'references' | 'log';
+type RefTab = 'categories' | 'roles' | 'serviceTypes' | 'paymentTypes';
+const REF_TABS: RefTab[] = ['categories', 'roles', 'serviceTypes', 'paymentTypes'];
 
-const LOG_TONE: Record<LogAction, { glyph: string; bg: string; fg: string }> = {
-  checkin: { glyph: '+', bg: '#E7F6EC', fg: '#067647' },
-  checkout: { glyph: '↗', bg: '#F2F4F7', fg: '#344054' },
-  ready: { glyph: '✓', bg: '#FBF0E6', fg: '#8A4A14' },
-  bookingEdit: { glyph: '✎', bg: '#DCE7FD', fg: '#1E3A8A' },
-  tariffEdit: { glyph: '✎', bg: '#DCE7FD', fg: '#1E3A8A' },
-  expense: { glyph: '−', bg: '#FEECEB', fg: '#B42318' },
-  block: { glyph: '×', bg: '#F2F4F7', fg: '#344054' },
+type LogTone = { glyph: string; bg: string; fg: string };
+
+const TONE = {
+  add: { glyph: '+', bg: '#E7F6EC', fg: '#067647' },
+  edit: { glyph: '✎', bg: '#DCE7FD', fg: '#1E3A8A' },
+  del: { glyph: '×', bg: '#FEECEB', fg: '#B42318' },
+  out: { glyph: '↗', bg: '#F2F4F7', fg: '#344054' },
+  ok: { glyph: '✓', bg: '#FBF0E6', fg: '#8A4A14' },
+  auth: { glyph: '⏻', bg: '#F2F4F7', fg: '#475467' },
+} satisfies Record<string, LogTone>;
+
+/** Старые коды (до v1.3) и операции новых кодов `<раздел>.<операция>`. */
+const LOG_TONE: Record<string, LogTone> = {
+  checkin: TONE.add,
+  checkout: TONE.out,
+  ready: TONE.ok,
+  bookingEdit: TONE.edit,
+  tariffEdit: TONE.edit,
+  expense: TONE.del,
+  block: TONE.out,
+  create: TONE.add,
+  update: TONE.edit,
+  delete: TONE.del,
+  move: TONE.edit,
+  blacklist: TONE.del,
+  unblock: TONE.ok,
+  resetPassword: TONE.edit,
+  repair: TONE.out,
+  repairDone: TONE.ok,
+  qr: TONE.edit,
+  hotel: TONE.edit,
+  login: TONE.auth,
+  logout: TONE.auth,
+  password: TONE.auth,
 };
+
+const logTone = (action: string): LogTone =>
+  LOG_TONE[action] ?? LOG_TONE[action.split('.').pop() ?? ''] ?? TONE.edit;
 
 @Component({
   selector: 'app-settings',
@@ -68,6 +101,7 @@ const LOG_TONE: Record<LogAction, { glyph: string; bg: string; fg: string }> = {
     SumPipe,
     RolesSection,
     ServiceTypesSection,
+    PaymentTypesSection,
   ],
   templateUrl: './settings.html',
 })
@@ -78,7 +112,15 @@ export class SettingsPage {
   private readonly transloco = inject(TranslocoService);
   private readonly lang = inject(LanguageService);
 
-  protected readonly tab = signal<SettingsTab>('hotel');
+  /** Маршрут без data.view (/settings) передаёт undefined — это экран «Настройки». */
+  readonly view = input<SettingsView, SettingsView | undefined>('settings', {
+    transform: (v) => v ?? 'settings',
+  });
+  /** ?tab=… — открыть нужную вкладку «Справочников». */
+  readonly tab = input<string | undefined>();
+  protected readonly refTab = linkedSignal<RefTab>(() =>
+    REF_TABS.includes(this.tab() as RefTab) ? (this.tab() as RefTab) : 'categories',
+  );
   protected readonly saving = signal(false);
 
   // ===== Отель =====
@@ -107,7 +149,10 @@ export class SettingsPage {
   );
 
   // ===== Категории =====
-  private readonly catRes = rxResource({ stream: () => this.api.listCategories() });
+  private readonly catRes = rxResource({
+    params: () => (this.view() === 'references' ? true : undefined),
+    stream: () => this.api.listCategories(),
+  });
   protected readonly categories = linkedSignal<RoomCategory[]>(() =>
     this.catRes.hasValue() ? this.catRes.value() : [],
   );
@@ -129,6 +174,7 @@ export class SettingsPage {
 
   // ===== Журнал (таблица: фильтры по столбцам — сотрудник, действие, период) =====
   private readonly logRes = rxResource({
+    params: () => (this.view() === 'log' ? true : undefined),
     stream: () => this.api.log(),
   });
   protected readonly log = computed(() => (this.logRes.hasValue() ? this.logRes.value() : []));
@@ -137,8 +183,43 @@ export class SettingsPage {
 
   /** Текст события на текущем языке («Заселил гостя Lena Hoffmann в номер 302»). */
   private logText(l: ActionLogEntry): string {
-    const text = this.transloco.translate(`settings.log.actions.${l.action}`, l.params);
+    const key = `settings.log.actions.${l.action}`;
+    let text = this.transloco.translate(key, l.params);
+    if (text === key) {
+      // Код, которого фронт ещё не знает: «room.archive: 206».
+      text = [l.action, l.params['target']].filter(Boolean).join(': ');
+    }
+    if (l.changes?.length) {
+      const fields = l.changes
+        .map((f) => {
+          const fk = `settings.log.field.${f}`;
+          const label = this.transloco.translate(fk);
+          return label === fk ? f : label;
+        })
+        .join(', ');
+      text += ` (${this.transloco.translate('settings.log.fields', { fields })})`;
+    }
     return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  /** Раздел действия: «Номера», «Гости»… (для старых кодов — по смыслу). */
+  private logGroup(l: ActionLogEntry): string {
+    const legacy: Record<string, string> = {
+      checkin: 'guest',
+      checkout: 'guest',
+      ready: 'room',
+      bookingEdit: 'guest',
+      tariffEdit: 'category',
+      expense: 'expense',
+      block: 'user',
+    };
+    const g = l.action.includes('.') ? l.action.split('.')[0] : legacy[l.action];
+    if (!g) {
+      return '';
+    }
+    const key = `settings.log.group.${g}`;
+    const t = this.transloco.translate(key);
+    return t === key ? g : t;
   }
 
   protected readonly logColumns = computed<ColDef<ActionLogEntry>[]>(() => {
@@ -160,7 +241,15 @@ export class SettingsPage {
         minWidth: 300,
         valueGetter: (p) => (p.data ? this.logText(p.data) : ''),
         cellRenderer: (p: { value: string; data?: ActionLogEntry }) =>
-          p.data ? logActionCell(LOG_TONE[p.data.action], p.value) : '',
+          p.data ? logActionCell(logTone(p.data.action), p.value) : '',
+      },
+      {
+        colId: 'group',
+        headerName: t('settings.log.col.group'),
+        flex: 0.9,
+        minWidth: 150,
+        valueGetter: (p) => (p.data ? this.logGroup(p.data) : ''),
+        cellClass: 'text-ink-2',
       },
       {
         field: 'at',
@@ -174,7 +263,14 @@ export class SettingsPage {
     ];
   });
 
-  constructor() {
+  /** Форма отеля нужна только на экране «Настройки» (входы маршрута уже привязаны). */
+  ngOnInit(): void {
+    if (this.view() === 'settings') {
+      this.loadHotel();
+    }
+  }
+
+  private loadHotel(): void {
     this.api.getHotel().subscribe({
       next: (h) => {
         this.initialHotel = h;
@@ -188,9 +284,9 @@ export class SettingsPage {
     });
   }
 
-  protected setTab(value: string | number | undefined): void {
-    if (value === 'hotel' || value === 'rates' || value === 'log') {
-      this.tab.set(value);
+  protected setRefTab(value: string | number | undefined): void {
+    if (REF_TABS.includes(value as RefTab)) {
+      this.refTab.set(value as RefTab);
     }
   }
 
@@ -203,7 +299,6 @@ export class SettingsPage {
 
   protected saveHotel(): void {
     if (this.hotelForm.invalid) {
-      this.tab.set('hotel');
       this.notify.error('settings.toast.innTitle', 'settings.toast.innText');
       return;
     }

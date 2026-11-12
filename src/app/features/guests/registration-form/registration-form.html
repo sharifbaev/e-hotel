@@ -321,18 +321,6 @@
           appendTo="body"
         />
       </div>
-      <div class="field">
-        <label [attr.for]="uid + 's-out'" class="field-label">{{ 'guests.reg.checkout' | transloco }}</label>
-        <p-datepicker
-          [inputId]="uid + 's-out'"
-          formControlName="checkout"
-          [showTime]="!compact()"
-          hourFormat="24"
-          dateFormat="dd.mm.yy"
-          [fluid]="true"
-          appendTo="body"
-        />
-      </div>
       @if (!compact() || extraOpen()) {
         <div class="field">
           <label [attr.for]="uid + 's-goal'" class="field-label">{{ 'guests.reg.purpose' | transloco }}</label>
@@ -377,12 +365,12 @@
           <p-select
             [inputId]="uid + 's-pay'"
             formControlName="payment"
-            [options]="payments"
+            [options]="payments()"
             appendTo="body"
             [fluid]="true"
           >
-            <ng-template #selectedItem let-p>{{ 'paymentMethods.' + p | transloco }}</ng-template>
-            <ng-template #item let-p>{{ 'paymentMethods.' + p | transloco }}</ng-template>
+            <ng-template #selectedItem let-p>{{ p | payLabel }}</ng-template>
+            <ng-template #item let-p>{{ p | payLabel }}</ng-template>
           </p-select>
         </div>
       }

@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
+import { Component, computed, inject, linkedSignal, signal, viewChild } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import {
   FormsModule,
@@ -10,38 +10,27 @@ import {
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ButtonModule } from 'primeng/button';
 import { Checkbox } from 'primeng/checkbox';
-import { DatePicker } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
-import { Textarea } from 'primeng/textarea';
 import { ApiError, APP_TODAY } from '../../core/api/mock-api';
-import { StaffService } from '../../core/data/staff.service';
-import { BookService } from '../../core/data/book.service';
 import { RoomQrService } from '../../core/data/room-qr.service';
 import { RoomsService } from '../../core/data/rooms.service';
 import { SettingsService } from '../../core/data/settings.service';
-import { FiscalReceiptData } from '../../core/docs/fiscal-receipt-doc';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { NotifyService } from '../../core/notify/notify.service';
 import { Room, RoomStatus } from '../../core/models';
-import {
-  formatDmy,
-  formatSum,
-  initials,
-  isoToLocalDate,
-  localDateTimeToIso,
-} from '../../shared/format/format';
+import { initials } from '../../shared/format/format';
 import { DayMonthPipe, PluralPipe, SumPipe } from '../../shared/format/format.pipes';
-import { sumInWords } from '../../shared/format/sum-in-words';
 import { SumInputDirective } from '../../shared/forms/sum-input.directive';
+import { DigitsInputDirective } from '../../shared/forms/digits-input.directive';
 import { ConfirmDialog } from '../../shared/ui/confirm-dialog/confirm-dialog';
-import { FiscalReceiptDialog } from '../../shared/ui/fiscal-receipt/fiscal-receipt-dialog';
 import { Icon } from '../../shared/ui/icon/icon';
 import { PayBadge, RoomStatusBadge } from '../../shared/ui/status/badges';
 import { ROOM_STATUSES, ROOM_TONE } from '../../shared/ui/status/status-styles';
 import { Sheet } from '../../shared/ui/sheet/sheet';
 import { RoomQr } from './room-qr';
+import { CheckoutDialog } from './checkout-dialog';
 import { RegistrationTabs } from '../guests/registration-form/registration-tabs';
 
 type StatusFilter = RoomStatus | 'all';
@@ -56,33 +45,30 @@ type StatusFilter = RoomStatus | 'all';
     ButtonModule,
     Checkbox,
     Dialog,
-    DatePicker,
     InputText,
     Select,
-    Textarea,
     Icon,
     RoomStatusBadge,
     PayBadge,
     Sheet,
     RoomQr,
+    CheckoutDialog,
     RegistrationTabs,
     SumInputDirective,
+    DigitsInputDirective,
     SumPipe,
     DayMonthPipe,
     PluralPipe,
-    FiscalReceiptDialog,
     ConfirmDialog,
   ],
   templateUrl: './rooms.html',
 })
 export class RoomsPage {
   private readonly roomsApi = inject(RoomsService);
-  private readonly book = inject(BookService);
   protected readonly qrApi = inject(RoomQrService);
   private readonly settingsApi = inject(SettingsService);
   private readonly notify = inject(NotifyService);
   /** ФИО дежурного администратора для подписи в чеке. */
-  private readonly staff = inject(StaffService);
   private readonly fb = inject(NonNullableFormBuilder);
   protected readonly bp = inject(BreakpointService);
   protected readonly today = inject(APP_TODAY);
@@ -162,12 +148,11 @@ export class RoomsPage {
   protected readonly addTried = signal(false);
   protected readonly saving = signal(false);
   protected readonly floorOptions = [1, 2, 3, 4, 5];
-  protected readonly bedOptions = [1, 2, 3, 4];
   protected readonly addForm = this.fb.group({
     number: ['', [Validators.required, Validators.pattern(/^\d{1,4}[A-Za-zА-Яа-я]?$/)]],
     floor: [2],
     category: ['Стандарт'],
-    beds: [2],
+    beds: this.fb.control<number | null>(2, [Validators.required, Validators.min(1), Validators.max(99)]),
     price: this.fb.control<number | null>(null),
     qr: [false],
   });
@@ -195,31 +180,8 @@ export class RoomsPage {
   protected readonly qrRoom = signal<Room | null>(null);
 
   // ----- Продление -----
-  protected readonly extendOpen = signal(false);
-  protected readonly extendDate = signal<Date | null>(null);
 
-  // ----- Выселение (выбор гостей, если их в номере несколько) -----
-  protected readonly checkoutOpen = signal(false);
-  protected readonly checkoutRoom = signal<Room | null>(null);
-  /** Документы отмеченных к выселению гостей. */
-  protected readonly checkoutDocs = signal<string[]>([]);
-  /** Итоговая сумма к оплате при выезде. */
-  protected readonly checkoutAmount = signal<number | null>(null);
-  /** Номер сформированного фискального чека. */
-  protected readonly receipt = signal<string | null>(null);
-  protected readonly receiptBusy = signal(false);
-  /** Данные последнего чека — для повторного просмотра и сохранения в архив. */
-  private receiptData: FiscalReceiptData | null = null;
-  /** Окно просмотра чека (как в «Книге» и «Архиве»): скачать Word / печать. */
-  protected readonly receiptOpen = signal(false);
-  protected readonly receiptView = signal<FiscalReceiptData | null>(null);
-  protected readonly toBlacklist = signal(false);
-  protected readonly blacklistReason = signal('');
-  protected readonly checkoutTried = signal(false);
-  protected readonly checkoutAll = computed(() => {
-    const room = this.checkoutRoom();
-    return !!room && room.guests.every((g) => this.checkoutDocs().includes(g.doc));
-  });
+  private readonly checkoutDialog = viewChild.required(CheckoutDialog);
 
   constructor() {
     this.qrApi.load().subscribe();
@@ -243,10 +205,10 @@ export class RoomsPage {
   /** Подсказка на карточке номера. */
   protected hint(room: Room): { key: string; date?: string; text?: string } {
     if (room.status === 'busy' && room.guests.length) {
-      const out = this.lastCheckout(room).slice(0, 10);
-      return out === this.today
-        ? { key: 'rooms.hint.checkoutToday' }
-        : { key: 'rooms.hint.checkout', date: out };
+      const since = this.firstCheckin(room).slice(0, 10);
+      return since === this.today
+        ? { key: 'rooms.hint.checkinToday' }
+        : { key: 'rooms.hint.checkin', date: since };
     }
     if (room.note) {
       return { key: '', text: room.note };
@@ -258,9 +220,9 @@ export class RoomsPage {
     return initials(name);
   }
 
-  /** Самая поздняя дата выезда среди гостей номера. */
-  protected lastCheckout(room: Room): string {
-    return room.guests.reduce((max, g) => (g.checkout > max ? g.checkout : max), '');
+  /** Самая ранняя дата заезда среди гостей номера. */
+  protected firstCheckin(room: Room): string {
+    return room.guests.reduce((min, g) => (!min || g.checkin < min ? g.checkin : min), '');
   }
 
   /** Итоговая сумма по всем гостям номера. */
@@ -274,7 +236,10 @@ export class RoomsPage {
 
   /** Выселение = закрытие клиента: выбор гостей, сумма, фискальный чек, чёрный список. */
   protected checkout(room: Room): void {
-    this.openCheckout(room);
+    if (this.bp.isMobile()) {
+      this.selectedNumber.set(null);
+    }
+    this.checkoutDialog().open(room);
   }
 
   protected markReady(room: Room): void {
@@ -369,186 +334,6 @@ export class RoomsPage {
     });
   }
 
-  protected openCheckout(room: Room): void {
-    this.checkoutRoom.set(room);
-    this.checkoutDocs.set(room.guests.map((g) => g.doc));
-    this.checkoutAmount.set(this.totalSum(room) || null);
-    this.receipt.set(null);
-    this.receiptData = null;
-    this.toBlacklist.set(false);
-    this.blacklistReason.set('');
-    this.checkoutTried.set(false);
-    if (this.bp.isMobile()) {
-      this.selectedNumber.set(null);
-    }
-    this.checkoutOpen.set(true);
-  }
-
-  protected isChecked(doc: string): boolean {
-    return this.checkoutDocs().includes(doc);
-  }
-
-  protected toggleGuest(doc: string, on: boolean): void {
-    this.checkoutDocs.update((list) =>
-      on ? [...new Set([...list, doc])] : list.filter((d) => d !== doc),
-    );
-  }
-
-  protected toggleAllGuests(on: boolean): void {
-    const room = this.checkoutRoom();
-    this.checkoutDocs.set(on && room ? room.guests.map((g) => g.doc) : []);
-  }
-
-  /** Сумма изменилась — ранее выданный чек уже не соответствует. */
-  protected setAmount(v: number | null): void {
-    this.checkoutAmount.set(v);
-    this.receipt.set(null);
-    this.receiptData = null;
-  }
-
-  protected generateReceipt(): void {
-    const room = this.checkoutRoom();
-    const amount = this.checkoutAmount();
-    if (!room || !amount) {
-      this.notify.error('rooms.toast.receiptNoSumTitle', 'rooms.toast.receiptNoSumText');
-      return;
-    }
-    const docs = this.checkoutDocs();
-    const leaving = room.guests.filter((g) => docs.includes(g.doc));
-    this.receiptBusy.set(true);
-    this.book.fiscalReceipt(room.number, amount, docs).subscribe({
-      next: (r) => {
-        const checkin = leaving.reduce(
-          (min, g) => (!min || g.checkin < min ? g.checkin : min),
-          '',
-        );
-        const nights = nightsBetween(checkin, this.today);
-        const first = leaving[0]?.name ?? '';
-        // Бланк гостиницы на русском/английском — текст строк не зависит от языка интерфейса.
-        this.receiptData = {
-          number: r.number,
-          date: formatDmy(this.today),
-          guests: leaving.length > 1 ? `${first} (+${leaving.length - 1})` : first,
-          company: '_'.repeat(28),
-          room: room.number,
-          checkin: formatDmy(checkin),
-          checkout: formatDmy(this.today),
-          items: [
-            {
-              name: `Проживание · ${room.category}`,
-              qty: String(nights),
-              price: formatSum(Math.round(amount / nights)),
-              sum: formatSum(amount),
-            },
-          ],
-          amount: formatSum(amount),
-          amountWords: sumInWords(amount),
-          cashier: this.staff.myName(),
-        };
-        this.receipt.set(r.number);
-        this.receiptBusy.set(false);
-        this.showReceipt();
-      },
-      error: (e: unknown) => {
-        this.receiptBusy.set(false);
-        this.notify.error(
-          'common.saveError',
-          e instanceof ApiError ? `errors.${e.code}` : 'errors.common.unknown',
-        );
-      },
-    });
-  }
-
-  /** Показать сформированный чек в окне (там — «Скачать» и «Печать»). */
-  protected showReceipt(): void {
-    if (this.receiptData) {
-      this.receiptView.set(this.receiptData);
-      this.receiptOpen.set(true);
-    }
-  }
-
-  protected reasonInvalid(): boolean {
-    return this.checkoutTried() && this.toBlacklist() && !this.blacklistReason().trim();
-  }
-
-  protected confirmCheckout(): void {
-    const room = this.checkoutRoom();
-    const docs = this.checkoutDocs();
-    if (!room || !docs.length) {
-      return;
-    }
-    this.checkoutTried.set(true);
-    if (this.reasonInvalid()) {
-      this.notify.error('common.requiredTitle', 'blacklist.toast.required');
-      return;
-    }
-    const leaving = room.guests.filter((g) => docs.includes(g.doc));
-    const banned = this.toBlacklist();
-    this.actionBusy.set(true);
-    this.book
-      .checkout(room.number, docs, {
-        amount: this.checkoutAmount() ?? 0,
-        receipt: this.receipt(),
-        receiptData: this.receipt() ? this.receiptData : null,
-        blacklistReason: banned ? this.blacklistReason().trim() : null,
-      })
-      .subscribe({
-      next: (updated) => {
-        this.replace(updated);
-        this.actionBusy.set(false);
-        this.checkoutOpen.set(false);
-        if (updated.guests.length) {
-          this.notify.success('rooms.toast.checkedOutPartTitle', 'rooms.toast.checkedOutPartText', {
-            count: leaving.length,
-            room: room.number,
-            left: updated.guests.length,
-          });
-        } else {
-          this.notify.success('rooms.toast.checkedOutTitle', 'rooms.toast.checkedOutText', {
-            name: leaving.map((g) => g.name).join(', '),
-            room: room.number,
-          });
-        }
-        if (banned) {
-          setTimeout(
-            () =>
-              this.notify.success('blacklist.toast.addedTitle', 'blacklist.toast.addedText', {
-                name: leaving.map((g) => g.name).join(', '),
-              }),
-            2500,
-          );
-        }
-      },
-      error: (e: unknown) => this.fail(e),
-    });
-  }
-
-  protected openExtend(room: Room): void {
-    this.extendDate.set(isoToLocalDate(this.lastCheckout(room) || undefined));
-    this.extendOpen.set(true);
-  }
-
-  protected saveExtend(room: Room): void {
-    const iso = localDateTimeToIso(this.extendDate());
-    const checkin = room.guests[0]?.checkin;
-    if (!iso || !checkin || iso <= checkin) {
-      this.notify.error('common.saveError', 'rooms.toast.extendInvalid');
-      return;
-    }
-    this.actionBusy.set(true);
-    this.roomsApi.extend(room.number, iso).subscribe({
-      next: (updated) => {
-        this.replace(updated);
-        this.actionBusy.set(false);
-        this.extendOpen.set(false);
-        this.notify.success('rooms.toast.extendedTitle', 'rooms.toast.extendedText', {
-          room: room.number,
-        });
-      },
-      error: (e: unknown) => this.fail(e),
-    });
-  }
-
   protected openAdd(): void {
     this.editNumber.set(null);
     this.addForm.reset({
@@ -601,11 +386,14 @@ export class RoomsPage {
   protected saveRoom(): void {
     this.addTried.set(true);
     if (this.addForm.invalid) {
-      this.notify.error('common.saveError', 'rooms.toast.numberRequired');
+      this.notify.error(
+        'common.saveError',
+        this.addForm.controls.number.invalid ? 'rooms.toast.numberRequired' : 'rooms.form.bedsInvalid',
+      );
       return;
     }
     const { qr, ...v } = this.addForm.getRawValue();
-    const data = { ...v, number: v.number.trim() };
+    const data = { ...v, beds: v.beds ?? 1, number: v.number.trim() };
     const edit = this.editNumber();
     const qrBefore = edit !== null && this.qrApi.isEnabled(edit);
     const qrChanged = !this.qrApi.error() && (qr !== qrBefore || (qr && edit !== data.number));
@@ -669,7 +457,11 @@ export class RoomsPage {
     return this.addTried() && this.addForm.controls.number.invalid;
   }
 
-  private replace(room: Room): void {
+  protected bedsInvalid(): boolean {
+    return this.addTried() && this.addForm.controls.beds.invalid;
+  }
+
+  protected replace(room: Room): void {
     this.rooms.update((list) => list.map((r) => (r.number === room.number ? room : r)));
   }
 
@@ -682,12 +474,3 @@ export class RoomsPage {
   }
 }
 
-/** Количество ночей между датой заезда и выезда (минимум 1). */
-function nightsBetween(checkin: string, checkout: string): number {
-  if (!checkin) {
-    return 1;
-  }
-  const a = Date.UTC(+checkin.slice(0, 4), +checkin.slice(5, 7) - 1, +checkin.slice(8, 10));
-  const b = Date.UTC(+checkout.slice(0, 4), +checkout.slice(5, 7) - 1, +checkout.slice(8, 10));
-  return Math.max(1, Math.round((b - a) / 86_400_000));
-}
