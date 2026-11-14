@@ -427,6 +427,10 @@
           <dd class="m-0 font-medium">{{ g.checkin | dayMonth: { time: true } }}</dd>
           <dt class="text-muted">{{ 'rooms.guest.sum' | transloco }}</dt>
           <dd class="m-0 font-semibold">{{ g.sum | sum }} {{ 'common.currency' | transloco }}</dd>
+          @if (g.prepayment) {
+            <dt class="text-muted">{{ 'rooms.checkoutPrepayment' | transloco }}</dt>
+            <dd class="m-0">{{ g.prepayment | sum }} {{ 'common.currency' | transloco }}</dd>
+          }
           <dt class="text-muted">{{ 'rooms.guest.payment' | transloco }}</dt>
           <dd class="m-0"><app-pay-badge [status]="g.pay" /></dd>
           @if (many) {
@@ -476,6 +480,17 @@
       <button pButton type="button" class="h-[46px]" (click)="checkIn(room)">
         <app-icon name="user-plus" />
         <span pButtonLabel>{{ 'rooms.checkIn' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="h-[46px]"
+        (click)="askRepair(room)"
+      >
+        <app-icon name="wrench" />
+        <span pButtonLabel>{{ 'rooms.toRepair' | transloco }}</span>
       </button>
     }
     @case ('clean') {
@@ -700,6 +715,43 @@
   </app-sheet>
 }
 
+
+<!-- На ремонт: необязательная заметка показывается на карточке номера -->
+<p-dialog
+  [(visible)]="repairOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'rooms.repairTitle' | transloco: { room: repairRoom()?.number ?? '' }"
+  [style]="{ width: '440px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  <div class="field">
+    <label for="rp-note" class="field-label">{{ 'rooms.repairNote' | transloco }}</label>
+    <textarea
+      id="rp-note"
+      pTextarea
+      rows="3"
+      class="w-full resize-none"
+      [placeholder]="'rooms.repairNotePlaceholder' | transloco"
+      [ngModel]="repairNote()"
+      (ngModelChange)="repairNote.set($event)"
+    ></textarea>
+    <span class="hint">{{ 'rooms.repairNoteHint' | transloco }}</span>
+  </div>
+  <ng-template #footer>
+    <button pButton type="button" severity="secondary" [outlined]="true" (click)="repairOpen.set(false)">
+      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+    </button>
+    <button pButton type="button" [loading]="actionBusy()" (click)="sendToRepair()">
+      @if (!actionBusy()) {
+        <app-icon name="wrench" />
+      }
+      <span pButtonLabel>{{ 'rooms.toRepair' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>
 
 <!-- Удаление номера -->
 <app-confirm-dialog

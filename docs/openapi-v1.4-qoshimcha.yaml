@@ -1,0 +1,493 @@
+# HotelOS (e-hotel) — OpenAPI v1.4 QO‘SHIMCHA. Faqat v1.3 dan keyingi o‘zgarishlar.
+# openapi.yaml, openapi-v1.1-qoshimcha.yaml, openapi-v1.2-qoshimcha.yaml bilan bir papkada saqlang.
+openapi: 3.1.0
+info:
+  title: HotelOS (e-hotel) API — v1.4 qo‘shimcha
+  version: '1.4'
+  description: 'FAQAT v1.3 dan keyin qo‘shilgan yoki o‘zgargan yo‘llar va sxemalar. Sana: 13.11.2026.
+
+
+    Qanday o‘qish: bu fayldagi yo‘l yoki sxema oldingi fayllardagi xuddi shu nomli yo‘l/sxemani TO‘LIQ almashtiradi; bu yerda
+    yo‘q narsalar o‘zgarmagan. «YANGI» — yangi narsa, «O‘ZGARDI» — o‘zgargan. Error sxemasi — openapi.yaml dan.
+
+
+    Asosiy o‘zgarishlar: kunlik narx va oldindan to‘lov (POST /book/{id}/prepayments); chiqarishda to‘lanishi kerak / oldindan
+    to‘lov / to‘langan / qarz; qarzni to‘lash (POST /debts/{id}/payments); jurnal parametrlari. Batafsil — hotelos-api-v1.4-qoshimcha.pdf.'
+servers:
+- url: /api/v1
+security:
+- bearer: []
+tags:
+- name: book
+- name: rooms
+- name: debts
+  description: «To‘lovlar va xarajatlar → Qarzlar»
+paths:
+  /book:
+    post:
+      tags:
+      - book
+      summary: 'Ro‘yxatdan o‘tkazib joylashtirish (O‘ZGARDI: kunlik narx, oldindan to‘lov)'
+      operationId: postBook
+      description: 'Kirish: book. Avvalgi barcha qoidalar kuchda (v1.0–v1.3).
+
+
+        - O‘ZGARDI: reg.amount — kunlik narx (bir sutka).
+
+        - YANGI: reg.prepayment — oldindan to‘lov. 0 → payment = unpaid. > 0 → payment majburiy, /payment-types kodi, unpaid/mixed
+        emas.
+
+        - prepayment > 0 bo‘lsa book_prepayments ga birinchi yozuv.
+
+        - Jurnal: guest.checkin (params: target, room, price, prepayment, payment).
+
+
+        Front: `core/data/book.service.ts → register()`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/BookCreateRequest
+      responses:
+        '201':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookEntry'
+        '422':
+          description: validation.failed — fields.prepayment / fields.payment (asosiy hujjatdagilardan tashqari)
+          content:
+            application/json:
+              schema: &id001
+                $ref: openapi.yaml#/components/schemas/Error
+        '401': &id002
+          description: auth.unauthorized — token yo‘q yoki muddati o‘tgan
+          content:
+            application/json:
+              schema: *id001
+        '403': &id003
+          description: auth.forbidden — rolda kerakli bo‘lim yo‘q
+          content:
+            application/json:
+              schema: *id001
+    get:
+      tags:
+      - book
+      summary: 'Kitob (O‘ZGARDI: reg.prepayment)'
+      operationId: getBook
+      description: 'Kirish: book. reg.prepayment doim bor (son, yo‘q — 0).'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookEntry'
+        '401': *id002
+        '403': *id003
+  /book/{id}:
+    put:
+      tags:
+      - book
+      summary: 'Mehmon ma’lumotlarini o‘zgartirish (O‘ZGARDI: prepayment)'
+      operationId: putBookId
+      parameters: &id004
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+      description: 'Kirish: book.
+
+
+        - reg.prepayment — yangi JAMI qiymat (tuzatish), book_prepayments ga yozilmaydi.
+
+        - payment qoidalari — POST /book dagidek.
+
+        - Jurnal: guest.update, changes ichida "amount", "prepayment", "payment" (o‘zgarganlari).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/BookRegistration
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEntry'
+        '404':
+          description: book.notFound
+          content:
+            application/json:
+              schema: *id001
+        '422':
+          description: validation.failed
+          content:
+            application/json:
+              schema: *id001
+        '401': *id002
+        '403': *id003
+  /book/{id}/prepayments:
+    post:
+      tags:
+      - book
+      summary: YANGI. Oldindan to‘lov kiritish
+      operationId: postBookIdPrepayments
+      parameters: *id004
+      description: 'Kirish: book. «Kitob» → «Oldindan to‘lov kiritish» tugmasi.
+
+
+        - book.prepayment += amount; book_prepayments ga yozuv.
+
+        - book.payment: barcha kiritishlar bir xil usulda — shu usul, har xil — mixed.
+
+        - Jurnal: guest.prepayment (params: target, room, sum, prepayment, payment).
+
+
+        Front: `core/data/book.service.ts → addPrepayment()`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentDraft'
+      responses:
+        '200':
+          description: Yangilangan yozuv
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookEntry'
+        '404':
+          description: book.notFound
+          content:
+            application/json:
+              schema: *id001
+        '422':
+          description: validation.failed — fields.amount / fields.payment
+          content:
+            application/json:
+              schema: *id001
+        '401': *id002
+        '403': *id003
+  /rooms/{number}/checkout:
+    post:
+      tags:
+      - rooms
+      summary: 'Chiqarish (O‘ZGARDI: prepayment, paid, debt)'
+      operationId: postRoomsNumberCheckout
+      parameters:
+      - name: number
+        in: path
+        required: true
+        schema:
+          type: string
+      description: 'Kirish: rooms yoki book. Avvalgi qoidalar kuchda.
+
+
+        - amount — to‘lanishi kerak (kunlik narx × kunlar, front hisoblaydi).
+
+        - debt = max(0, amount − prepayment − paid); mos kelmasa 422 fields.debt.
+
+        - O‘ZGARDI: mixed → paidCard + paidCash = paid.
+
+        - Qarzni front o‘zi POST /debts bilan yaratadi; backend chiqarishda qarz YARATMAYDI, faqat arxivga debt yozadi.
+
+        - Fiskal chek paid summasiga.
+
+        - Arxivga (birinchi ketuvchiga): sum = amount, prepayment, paid, debt, checkoutPayment, paidCard, paidCash.
+
+        - Jurnal: guest.checkout (params: target, room, sum, prepayment, paid, debt, payment).
+
+        - prepayment/paid yuborilmasa: prepayment = 0, paid = amount, debt = 0.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: openapi.yaml#/components/schemas/Room
+        '422':
+          description: validation.failed — fields.debt / fields.paidCard
+          content:
+            application/json:
+              schema: *id001
+        '401': *id002
+        '403': *id003
+  /debts/{id}/payments:
+    post:
+      tags:
+      - debts
+      summary: YANGI. Qarzni to‘lash (to‘liq — o‘chadi, qisman — qoldiq)
+      operationId: postDebtsIdPayments
+      parameters: *id004
+      description: 'Kirish: payments. «To‘lovlar va xarajatlar → Qarzlar» → «To‘lash».
+
+
+        - amount ≤ debt.sum.
+
+        - amount = debt.sum → qarz o‘chiriladi, javob { debt: null }.
+
+        - amount < debt.sum → debt.sum -= amount, javob { debt: Debt }.
+
+        - debt_payments ga yozuv.
+
+        - Jurnal: debt.payment (qisman) yoki debt.paidOff (to‘liq), params: target, sum, rest, payment. debt.update/debt.delete
+        YOZILMAYDI.
+
+
+        Front: `core/data/debts.service.ts → pay()`.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentDraft'
+      responses:
+        '200':
+          description: Muvaffaqiyatli
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebtPaymentResult'
+        '404':
+          description: debts.notFound
+          content:
+            application/json:
+              schema: *id001
+        '422':
+          description: validation.failed — fields.amount (> qarz yoki ≤ 0) / fields.payment
+          content:
+            application/json:
+              schema: *id001
+        '401': *id002
+        '403': *id003
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    PaymentDraft:
+      description: YANGI. Oldindan to‘lov kiritish va qarzni to‘lash.
+      type: object
+      properties:
+        amount:
+          type: integer
+          description: '> 0, so‘m'
+        payment:
+          type: string
+          description: /payment-types kodi; unpaid va mixed emas
+          example: cash
+      required:
+      - amount
+      - payment
+      example:
+        amount: 150000
+        payment: uzcard
+    GuestRegistration:
+      description: O‘ZGARDI. openapi.yaml dagi GuestRegistration + prepayment; amount — kunlik narx.
+      allOf:
+      - $ref: openapi.yaml#/components/schemas/GuestRegistration
+      - type: object
+        properties:
+          amount:
+            type: integer
+            description: 'O‘ZGARDI: kunlik narx (bir sutka), > 0. Chiqarishda: amount × kunlar'
+          prepayment:
+            type: integer
+            description: YANGI. Jami oldindan to‘lov, ≥ 0. Yo‘q/null → 0
+          payment:
+            type: string
+            description: 'O‘ZGARDI: oldindan to‘lov usuli. prepayment = 0 → unpaid; bir nechta kiritish har xil usulda → mixed'
+          checkout:
+            type:
+            - string
+            - 'null'
+            description: 'v1.3: joylashtirishda null, chiqarishda server qo‘yadi'
+        required:
+        - prepayment
+    BookEntry:
+      description: '«Mehmonlar kitobi» yozuvi. O‘ZGARDI: reg — v1.4 GuestRegistration.'
+      type: object
+      properties:
+        id:
+          type: integer
+        reg:
+          $ref: '#/components/schemas/GuestRegistration'
+        receipt:
+          anyOf:
+          - $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/FiscalReceiptData
+          - type: 'null'
+      required:
+      - id
+      - reg
+      - receipt
+    RoomGuest:
+      description: O‘ZGARDI. v1.1 dagi RoomGuest + prepayment; sum — kunlik narx.
+      allOf:
+      - $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/RoomGuest
+      - type: object
+        properties:
+          sum:
+            type: integer
+            description: 'O‘ZGARDI: kunlik narx (reg.amount)'
+          prepayment:
+            type: integer
+            description: YANGI. Jami oldindan to‘lov, yo‘q — 0
+        required:
+        - prepayment
+    CheckoutRequest:
+      description: 'Chiqarish. O‘ZGARDI: prepayment, paid, debt; mixed → paidCard + paidCash = paid.'
+      type: object
+      properties:
+        docs:
+          type: array
+          items:
+            type: string
+        amount:
+          type: integer
+          description: 'O‘ZGARDI: to‘lanishi kerak (jami) = Σ kunlik narx × kunlar'
+        prepayment:
+          type: integer
+          description: YANGI. Chiqayotgan mehmonlarning jami oldindan to‘lovi
+        paid:
+          type: integer
+          description: YANGI. Chiqishda to‘langan summa
+        debt:
+          type: integer
+          description: YANGI. max(0, amount − prepayment − paid). Qarzni front POST /debts bilan yaratadi
+        payment:
+          type: string
+          description: v1.3. Chiqarishdagi to‘lov usuli
+        paidCard:
+          type:
+          - integer
+          - 'null'
+          description: 'mixed: kartadan; paidCard + paidCash = paid'
+        paidCash:
+          type:
+          - integer
+          - 'null'
+          description: 'mixed: naqd'
+        receipt:
+          type:
+          - string
+          - 'null'
+          description: Chek raqami (paid summasiga) yoki null
+        receiptData:
+          anyOf:
+          - $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/FiscalReceiptData
+          - type: 'null'
+        blacklistReason:
+          type:
+          - string
+          - 'null'
+      required:
+      - docs
+      - amount
+      - prepayment
+      - paid
+      - debt
+      - payment
+      - receipt
+      - blacklistReason
+      example:
+        docs:
+        - AA 1234567
+        amount: 900000
+        prepayment: 200000
+        paid: 600000
+        debt: 100000
+        payment: mixed
+        paidCard: 400000
+        paidCash: 200000
+        receipt: '000123'
+        receiptData: null
+        blacklistReason: null
+    ArchivedGuest:
+      description: O‘ZGARDI. v1.1 ArchivedGuest + prepayment, paid, debt (birinchi ketuvchida; qolganlarda 0/null).
+      allOf:
+      - $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/ArchivedGuest
+      - type: object
+        properties:
+          sum:
+            type: integer
+            description: To‘lanishi kerak (jami)
+          prepayment:
+            type: integer
+            description: YANGI
+          paid:
+            type:
+            - integer
+            - 'null'
+            description: YANGI
+          debt:
+            type: integer
+            description: YANGI
+    DebtPaymentResult:
+      description: YANGI. POST /debts/{id}/payments javobi.
+      type: object
+      properties:
+        debt:
+          anyOf:
+          - $ref: openapi-v1.1-qoshimcha.yaml#/components/schemas/Debt
+          - type: 'null'
+          description: null — qarz to‘liq to‘landi va o‘chirildi; aks holda qoldiq bilan
+      required:
+      - debt
+      example:
+        debt:
+          id: 3
+          debtor: Karimova Zarina
+          reason: Chiqishda to‘liq to‘lanmadi, 302-xona
+          sum: 50000
+          date: '2026-11-13T12:10:00'
+          who: Sherzod Nazarov
+    LogParams:
+      description: YANGI (hujjat uchun). ActionLogEntry.params dagi to‘lov kalitlari — barchasi string.
+      type: object
+      properties:
+        target:
+          type: string
+          description: Mehmon / qarzdor F.I.
+        room:
+          type: string
+          description: Xona
+        price:
+          type: string
+          description: Kunlik narx (guest.checkin)
+        sum:
+          type: string
+          description: 'Summa: kiritilgan / jami / to‘langan'
+        prepayment:
+          type: string
+          description: Oldindan to‘lov (jami)
+        paid:
+          type: string
+          description: Chiqishda to‘langan
+        debt:
+          type: string
+          description: Qarzga yozilgan
+        rest:
+          type: string
+          description: Qarz qoldig‘i
+        payment:
+          type: string
+          description: To‘lov usuli kodi

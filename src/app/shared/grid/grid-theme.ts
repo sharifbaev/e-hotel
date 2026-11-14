@@ -14,6 +14,7 @@ import {
   RowSelectionModule,
   RowStyleModule,
   TextFilterModule,
+  TooltipModule,
   ValidationModule,
   themeQuartz,
 } from 'ag-grid-community';
@@ -42,6 +43,8 @@ export function registerGridModules(): void {
     LocaleModule,
     CellStyleModule,
     RowStyleModule,
+    // Подсказки ячеек (tooltipValueGetter / tooltipField), например «Способ оплаты» в архиве гостей.
+    TooltipModule,
     ...(isDevMode() ? [ValidationModule] : []),
   ]);
 }

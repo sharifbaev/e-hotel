@@ -55,7 +55,7 @@ export class LanguageService {
       tap(() => {
         this.transloco.setActiveLang(lang);
         this.current.set(lang);
-        this.document.documentElement.lang = LANGS.find((l) => l.code === lang)?.html ?? 'ru';
+        this.document.documentElement.lang = LANGS.find((l) => l.code === lang)?.html ?? 'uz-Latn';
       }),
     );
   }
@@ -70,5 +70,6 @@ function readLang(): Lang {
   } catch {
     // ignore
   }
-  return 'ru';
+  // По умолчанию — узбекский (латиница).
+  return 'uz-Latn';
 }

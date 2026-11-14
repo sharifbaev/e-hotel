@@ -186,7 +186,9 @@
       "expenses": "Xarajatlar",
       "expensesNote": "tushumning {{pct}}%",
       "profit": "Foyda",
-      "profitNote": "marja {{pct}}%"
+      "profitNote": "marja {{pct}}%",
+      "debts": "Qarzlar",
+      "debtsNote": "qarzdorlar: {{count}}"
     },
     "mln": "{{value}} mln",
     "mlnSum": "mln so‘m",
@@ -209,6 +211,20 @@
       "dates": "Sanalar",
       "sum": "Summa",
       "payment": "To‘lov"
+    },
+    "income": {
+      "title": "Foyda qayerdan",
+      "period": "Davr: {{from}} — {{to}}",
+      "stay": "Mehmonlar yashashi",
+      "stayHint": "Oldindan to‘lovlar va chiqishdagi to‘lov",
+      "debts": "Yopilgan qarzlar",
+      "debtsHint": "Davr ichida to‘langan qarzlar",
+      "services": "Qo‘shimcha xizmatlar",
+      "servicesHint": "Nonushta, basseyn, fotosessiya va boshqalar",
+      "total": "Daromad",
+      "expenses": "Xarajatlar",
+      "profit": "Foyda",
+      "noBreakdown": "Server hozircha daromad taqsimotini yubormayapti — butun daromad yashash sifatida ko‘rsatilgan."
     }
   },
   "rooms": {
@@ -247,7 +263,7 @@
       "phone": "Telefon",
       "checkin": "Kelish",
       "checkout": "Ketish",
-      "sum": "Summa",
+      "sum": "Kunlik narx",
       "payment": "To‘lov"
     },
     "checkout": "Chiqarish",
@@ -304,7 +320,9 @@
       "deletedTitle": "Xona o‘chirildi",
       "deletedText": "{{room}}-xona o‘chirildi.",
       "deleteBusyTitle": "Xona band",
-      "deleteBusyText": "{{room}}-xonada mehmonlar yashamoqda — avval ularni chiqaring."
+      "deleteBusyText": "{{room}}-xonada mehmonlar yashamoqda — avval ularni chiqaring.",
+      "repairTitle": "Xona ta’mirda",
+      "repairText": "{{room}}-xona ta’mirga yuborildi va joylashtirish uchun yopiq."
     },
     "editShort": "Tahrirlash",
     "editAria": "{{room}}-xonani tahrirlash",
@@ -317,7 +335,7 @@
     "checkoutPick": "Ketayotgan mehmonlarni belgilang. Qolganlar xonada qoladi.",
     "checkoutAll": "Barchasini tanlash",
     "checkoutSubmit": "Chiqarish ({{count}})",
-    "checkoutAmount": "Yakuniy summa",
+    "checkoutAmount": "Summa",
     "checkoutAmountHint": "Kelishilgan, butun yashash davri uchun",
     "receiptGenerate": "Fiskal chekni shakllantirish",
     "receiptDone": "№ {{number}} fiskal chek yaratildi",
@@ -340,7 +358,31 @@
     },
     "checkoutPayment": "To‘lov usuli",
     "paidCard": "Karta orqali",
-    "paidCash": "Naqd pul"
+    "paidCash": "Naqd pul",
+    "checkoutCalc": "Kunlik narx × kunlar: {{calc}}",
+    "checkoutPrepayment": "Oldindan to‘lov",
+    "checkoutToPay": "To‘lanishi kerak",
+    "checkoutPaidHint": "Mehmon chiqishda qancha to‘laydi",
+    "debt": {
+      "note": "{{sum}} so‘m yetmaydi — qoldiq qarzga yoziladi",
+      "title": "To‘lanishi kerakdan kam to‘landi",
+      "text": "Oldindan to‘lov bilan ham mehmon to‘liq summani to‘lamayapti. Qoldiq {{sum}} so‘m {{name}} nomiga «Qarzlar»ga yoziladi.",
+      "sum": "Qarz",
+      "reason": "Qarz sababi",
+      "reasonPlaceholder": "Masalan: hafta oxirigacha to‘laydi",
+      "reasonDefault": "Chiqishda to‘liq to‘lanmadi, {{room}}-xona",
+      "reasonRequired": "Qarz sababini kiriting.",
+      "submit": "Chiqarish va qarzga yozish",
+      "savedTitle": "Qarz yozildi",
+      "savedText": "{{name}}: {{sum}} so‘m — «To‘lovlar va xarajatlar → Qarzlar»da.",
+      "saveErrorTitle": "Qarz yozilmadi",
+      "saveErrorText": "Mehmon chiqarildi, lekin {{sum}} so‘m qarz ({{name}}) saqlanmadi. Uni «Qarzlar»ga qo‘lda qo‘shing."
+    },
+    "toRepair": "Ta’mirga",
+    "repairTitle": "Ta’mirga yuborish · № {{room}}",
+    "repairNote": "Nima ta’mirlanadi",
+    "repairNotePlaceholder": "Masalan: smesitelni almashtirish",
+    "repairNoteHint": "Ixtiyoriy. Izoh xona kartochkasida ko‘rinadi"
   },
   "pay": {
     "paid": "To‘langan",
@@ -432,8 +474,8 @@
       "checkin": "Kelish",
       "checkout": "Ketish",
       "purpose": "Tashrif maqsadi",
-      "amount": "Summa",
-      "amountHint": "Kelishilgan, butun davr uchun jami",
+      "amount": "Kunlik narx",
+      "amountHint": "Kelishilgan, bir sutka uchun",
       "payment": "To‘lov usuli",
       "fiscal": "Fiskal chek berish",
       "saveFiscal": "Fiskal chekni saqlash",
@@ -463,7 +505,11 @@
       "duplicateTitle": "Hujjat takrorlangan",
       "duplicateText": "{{doc}} hujjati bir nechta mehmonda ko‘rsatilgan.",
       "doneGroupTitle": "Mehmonlar qo‘shildi",
-      "doneGroupText": "Joylashtirilgan mehmonlar: {{count}}. Xonalar: {{rooms}}."
+      "doneGroupText": "Joylashtirilgan mehmonlar: {{count}}. Xonalar: {{rooms}}.",
+      "prepaid": "Oldindan to‘lov",
+      "prepaidHint": "Mehmon oldindan to‘ladi",
+      "prepayment": "Oldindan to‘lov summasi",
+      "prepaymentRequired": "Oldindan to‘lov summasini kiriting yoki «Oldindan to‘lov» belgisini olib tashlang."
     }
   },
   "docTypes": {
@@ -664,6 +710,22 @@
       "updatedText": "«{{reason}}» qarzi yangilandi.",
       "deletedTitle": "Qarz o‘chirildi",
       "deletedText": "«{{reason}}» qarzi ro‘yxatdan o‘chirildi."
+    },
+    "pay": {
+      "button": "To‘lash",
+      "title": "Qarzni to‘lash",
+      "debt": "Qarz",
+      "amount": "To‘lov summasi",
+      "method": "To‘lov usuli",
+      "submit": "To‘lash",
+      "willClose": "Qarz to‘liq yopiladi va jadvaldan o‘chiriladi",
+      "rest": "Qarz qoldig‘i",
+      "required": "To‘lov summasini kiriting.",
+      "tooMuch": "To‘lov summasi qarzdan katta ({{sum}} so‘m).",
+      "fullTitle": "Qarz yopildi",
+      "fullText": "{{name}} {{sum}} so‘m to‘ladi. Qarz yopildi.",
+      "partTitle": "To‘lov qabul qilindi",
+      "partText": "{{name}} {{sum}} so‘m to‘ladi. Qarz qoldig‘i: {{rest}} so‘m."
     }
   },
   "serviceTypes": {
@@ -767,7 +829,8 @@
       "copyFailTitle": "Nusxalab bo‘lmadi",
       "copyFailText": "Brauzer almashish buferiga ruxsat bermadi. Parolni belgilab, qo‘lda nusxalang."
     },
-    "rolesButton": "Rollar va huquqlar"
+    "rolesButton": "Rollar va huquqlar",
+    "search": "F.I.Sh., login yoki telefon"
   },
   "settings": {
     "title": "Sozlamalar",
@@ -847,7 +910,8 @@
           "checkout": "{{target}} mehmonini {{room}}-xonadan chiqardi",
           "update": "{{target}} mehmon ma’lumotlarini o‘zgartirdi",
           "move": "{{target}} mehmonini {{room}}-xonaga ko‘chirdi",
-          "blacklist": "{{target}} mehmonini qora ro‘yxatga qo‘shdi"
+          "blacklist": "{{target}} mehmonini qora ro‘yxatga qo‘shdi",
+          "prepayment": "{{target}} mehmon uchun oldindan to‘lov kiritdi ({{room}}-xona)"
         },
         "blacklist": {
           "create": "{{target}}ni qora ro‘yxatga qo‘shdi",
@@ -876,7 +940,9 @@
         "debt": {
           "create": "qarz qo‘shdi: {{target}} — {{sum}} so‘m",
           "update": "qarzni o‘zgartirdi: {{target}}",
-          "delete": "qarzni o‘chirdi: {{target}}"
+          "delete": "qarzni o‘chirdi: {{target}}",
+          "payment": "qarz bo‘yicha qisman to‘lov qabul qildi: {{target}}",
+          "paidOff": "to‘lovni qabul qilib, qarzni yopdi: {{target}}"
         },
         "receipt": {
           "create": "№ {{target}} fiskal chekni shakllantirdi"
@@ -967,7 +1033,18 @@
         "debtor": "qarzdor",
         "serviceTypeId": "xizmat turi",
         "who": "kim rasmiylashtirdi",
-        "qr": "QR-kod"
+        "qr": "QR-kod",
+        "prepayment": "oldindan to‘lov"
+      },
+      "detail": {
+        "price": "kunlik {{v}} so‘m",
+        "sum": "summa {{v}} so‘m",
+        "prepayment": "oldindan to‘lov {{v}} so‘m",
+        "toPay": "to‘lanishi kerak {{v}} so‘m",
+        "payment": "to‘lov usuli: {{v}}",
+        "paid": "to‘landi {{v}} so‘m",
+        "debt": "qarzga {{v}} so‘m",
+        "rest": "qoldiq {{v}} so‘m"
       }
     },
     "unsaved": "Saqlanmagan o‘zgarishlar bor",
@@ -1414,14 +1491,25 @@
     "editTitle": "Mehmon ma’lumotlarini o‘zgartirish",
     "banned": "Qora ro‘yxatda",
     "col": {
-      "payment": "To‘lov turi"
+      "payment": "To‘lov usuli",
+      "price": "Kunlik narx",
+      "prepayment": "Oldindan to‘lov"
     },
     "submitCheckIn": "Joylashtirish{{count}}",
     "toast": {
-      "updatedText": "{{name}} ma’lumotlari yangilandi."
+      "updatedText": "{{name}} ma’lumotlari yangilandi.",
+      "prepaidTitle": "Oldindan to‘lov kiritildi",
+      "prepaidText": "{{name}} mehmon uchun {{sum}} so‘m.",
+      "prepayRequired": "Oldindan to‘lov summasini kiriting."
     },
     "add": "Mehmonni joylashtirish",
-    "filterByPayment": "To‘lov turi bo‘yicha filtr"
+    "filterByPayment": "To‘lov usuli bo‘yicha filtr",
+    "prepay": "Oldindan to‘lov kiritish",
+    "prepayTitle": "Oldindan to‘lov kiritish",
+    "prepayCurrent": "Allaqachon kiritilgan",
+    "prepayAmount": "Summa",
+    "prepayAfter": "Oldindan to‘lov bo‘ladi",
+    "perDay": "kun"
   },
   "blacklist": {
     "title": "Qora ro‘yxat",

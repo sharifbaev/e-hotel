@@ -19,6 +19,7 @@ export class DashboardService {
         daily: s.daily ?? [],
         categories: s.categories ?? [],
         arrivals: s.arrivals ?? [],
+        income: s.income ?? null,
         fund: { ...EMPTY_FUND, ...(s.fund as Partial<DashboardSummary['fund']> | null) },
       })),
     );

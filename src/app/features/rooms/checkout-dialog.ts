@@ -1,6 +1,6 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ButtonModule } from 'primeng/button';
 import { Checkbox } from 'primeng/checkbox';
 import { Dialog } from 'primeng/dialog';
@@ -8,6 +8,7 @@ import { InputText } from 'primeng/inputtext';
 import { Textarea } from 'primeng/textarea';
 import { ApiError, APP_TODAY } from '../../core/api/mock-api';
 import { BookService } from '../../core/data/book.service';
+import { DebtsService } from '../../core/data/debts.service';
 import { StaffService } from '../../core/data/staff.service';
 import { FiscalReceiptData } from '../../core/docs/fiscal-receipt-doc';
 import { MIXED_PAYMENT, Room } from '../../core/models';
@@ -15,7 +16,7 @@ import { PaymentTypesService } from '../../core/data/payment-types.service';
 import { PayLabelPipe } from '../../shared/format/pay-label.pipe';
 import { Select } from 'primeng/select';
 import { NotifyService } from '../../core/notify/notify.service';
-import { formatDmy, formatSum, initials } from '../../shared/format/format';
+import { formatDmy, formatSum, initials, localDateTimeSecToIso } from '../../shared/format/format';
 import { DayMonthPipe, SumPipe } from '../../shared/format/format.pipes';
 import { sumInWords } from '../../shared/format/sum-in-words';
 import { SumInputDirective } from '../../shared/forms/sum-input.directive';
@@ -52,6 +53,8 @@ export class CheckoutDialog {
   private readonly notify = inject(NotifyService);
   private readonly today = inject(APP_TODAY);
   private readonly payTypes = inject(PaymentTypesService);
+  private readonly debts = inject(DebtsService);
+  private readonly transloco = inject(TranslocoService);
 
   /** Способ оплаты при выселении (справочник «Способ оплаты»). */
   protected readonly payments = computed(() => this.payTypes.items().map((t) => t.code));
@@ -69,8 +72,47 @@ export class CheckoutDialog {
   protected readonly checkoutRoom = signal<Room | null>(null);
   /** Документы отмеченных к выселению гостей. */
   protected readonly checkoutDocs = signal<string[]>([]);
-  /** Итоговая сумма к оплате при выезде. */
+  /** «К оплате» за проживание: стоимость за день × дни (по отмеченным гостям), можно изменить. */
   protected readonly checkoutAmount = signal<number | null>(null);
+  /** «Сумма» — сколько гость платит при выселении (по умолчанию К оплате − Предоплата). */
+  protected readonly paid = signal<number | null>(null);
+  /** Отмеченные к выселению гости. */
+  private readonly leaving = computed(() => {
+    const room = this.checkoutRoom();
+    const docs = this.checkoutDocs();
+    return room ? room.guests.filter((g) => docs.includes(g.doc)) : [];
+  });
+  /** Расчёт «стоимость за день × дни» для подсказки: «300 000 × 3 + 250 000 × 2». */
+  protected readonly calc = computed(() =>
+    this.leaving()
+      .map((g) => `${formatSum(g.sum)} × ${nightsBetween(g.checkin, this.today)}`)
+      .join(' + '),
+  );
+  /** Предоплата отмеченных гостей. */
+  protected readonly prepayment = computed(() =>
+    this.leaving().reduce((s, g) => s + (g.prepayment ?? 0), 0),
+  );
+  /** Остаток после предоплаты: К оплате − Предоплата (не меньше 0). */
+  private readonly remaining = computed(() =>
+    Math.max(0, (this.checkoutAmount() ?? 0) - this.prepayment()),
+  );
+  /** Долг: Предоплата + Сумма меньше, чем К оплате. */
+  protected readonly debt = computed(() =>
+    Math.max(0, (this.checkoutAmount() ?? 0) - this.prepayment() - (this.paid() ?? 0)),
+  );
+  /** Подтверждение «выселить с долгом»: причина обязательна (как в «Долгах»). */
+  protected readonly debtOpen = signal(false);
+  protected readonly debtReason = signal('');
+  protected readonly debtTried = signal(false);
+  protected readonly debtReasonInvalid = computed(
+    () => this.debtTried() && !this.debtReason().trim(),
+  );
+  /** ФИО выселяемых гостей — должник. */
+  protected readonly debtor = computed(() =>
+    this.leaving()
+      .map((g) => g.name)
+      .join(', '),
+  );
   /** Номер сформированного фискального чека. */
   protected readonly receipt = signal<string | null>(null);
   protected readonly receiptBusy = signal(false);
@@ -93,10 +135,9 @@ export class CheckoutDialog {
    */
   open(room: Room, docs?: string[]): void {
     const marked = docs?.length ? docs : room.guests.map((g) => g.doc);
-    const sum = room.guests.filter((g) => marked.includes(g.doc)).reduce((s, g) => s + g.sum, 0);
     this.checkoutRoom.set(room);
     this.checkoutDocs.set(marked);
-    this.checkoutAmount.set(sum || null);
+    this.recalc();
     this.payTypes.ensureLoaded();
     this.payment.set('cash');
     this.paidCard.set(null);
@@ -106,6 +147,7 @@ export class CheckoutDialog {
     this.toBlacklist.set(false);
     this.blacklistReason.set('');
     this.checkoutTried.set(false);
+    this.debtOpen.set(false);
     this.checkoutOpen.set(true);
   }
 
@@ -117,53 +159,88 @@ export class CheckoutDialog {
     this.checkoutDocs.update((list) =>
       on ? [...new Set([...list, doc])] : list.filter((d) => d !== doc),
     );
+    this.recalc();
   }
 
   protected toggleAllGuests(on: boolean): void {
     const room = this.checkoutRoom();
     this.checkoutDocs.set(on && room ? room.guests.map((g) => g.doc) : []);
+    this.recalc();
   }
 
-  /** Смена способа: для «Смешанный» итоговая сумма сначала вся «картой» — дальше делится вручную. */
+  /** Сумма по отмеченным гостям: стоимость за день × количество дней. */
+  private recalc(): void {
+    const sum = this.leaving().reduce(
+      (s, g) => s + g.sum * nightsBetween(g.checkin, this.today),
+      0,
+    );
+    this.setAmount(sum || null);
+  }
+
+  /** Смена способа: для «Смешанный» «К оплате» сначала вся «картой» — дальше делится вручную. */
   protected setPayment(code: string): void {
     this.payment.set(code);
     if (code === MIXED_PAYMENT) {
-      this.paidCard.set(this.checkoutAmount());
-      this.paidCash.set(null);
+      this.splitToCard();
     }
   }
 
-  /** Части смешанной оплаты: итоговая сумма = картой + наличными. */
+  /** Части смешанной оплаты: «Картой» + «Наличными» = «Сумма» (второе поле подстраивается). */
   protected setPart(part: 'card' | 'cash', v: number | null): void {
-    (part === 'card' ? this.paidCard : this.paidCash).set(v);
-    const total = (this.paidCard() ?? 0) + (this.paidCash() ?? 0);
-    this.setAmount(total || null);
+    const rest = v === null ? null : Math.max(0, (this.paid() ?? 0) - v) || null;
+    if (part === 'card') {
+      this.paidCard.set(v);
+      this.paidCash.set(rest);
+    } else {
+      this.paidCash.set(v);
+      this.paidCard.set(rest);
+    }
   }
 
-  /** Сумма изменилась — ранее выданный чек уже не соответствует. */
-  protected setAmount(v: number | null): void {
+  /** «К оплате» (только чтение, считается по гостям) — «Сумма» снова равна остатку после предоплаты. */
+  private setAmount(v: number | null): void {
     this.checkoutAmount.set(v);
+    this.setPaid(this.remaining() || null);
+  }
+
+  /** «Сумма» изменилась — ранее выданный чек уже не соответствует. */
+  protected setPaid(v: number | null): void {
+    this.paid.set(v);
     this.receipt.set(null);
     this.receiptData = null;
+    if (this.mixed()) {
+      this.splitToCard();
+    }
+  }
+
+  private splitToCard(): void {
+    this.paidCard.set(this.paid() || null);
+    this.paidCash.set(null);
   }
 
   protected generateReceipt(): void {
     const room = this.checkoutRoom();
-    const amount = this.checkoutAmount();
-    if (!room || !amount) {
+    // Чек — на «Сумму», которую гость платит при выселении.
+    const amount = this.checkoutAmount() ?? 0;
+    const prepayment = this.prepayment();
+    const toPay = this.paid() ?? 0;
+    const debt = this.debt();
+    if (!room || !toPay) {
       this.notify.error('rooms.toast.receiptNoSumTitle', 'rooms.toast.receiptNoSumText');
       return;
     }
     const docs = this.checkoutDocs();
     const leaving = room.guests.filter((g) => docs.includes(g.doc));
     this.receiptBusy.set(true);
-    this.book.fiscalReceipt(room.number, amount, docs).subscribe({
+    this.book.fiscalReceipt(room.number, toPay, docs).subscribe({
       next: (r) => {
         const checkin = leaving.reduce(
           (min, g) => (!min || g.checkin < min ? g.checkin : min),
           '',
         );
         const nights = nightsBetween(checkin, this.today);
+        // Одна цена за день — строка «цена × дни»; разные — средняя цена за день.
+        const prices = [...new Set(leaving.map((g) => g.sum))];
         const first = leaving[0]?.name ?? '';
         // Бланк гостиницы на русском/английском — текст строк не зависит от языка интерфейса.
         this.receiptData = {
@@ -178,12 +255,23 @@ export class CheckoutDialog {
             {
               name: `Проживание · ${room.category}`,
               qty: String(nights),
-              price: formatSum(Math.round(amount / nights)),
+              price: formatSum(
+                prices.length === 1 && prices[0] * nights === amount
+                  ? prices[0]
+                  : Math.round(amount / nights),
+              ),
               sum: formatSum(amount),
             },
+            // Предоплата вычитается — итог чека = «К оплате».
+            ...(prepayment > 0
+              ? [{ name: 'Предоплата', qty: '', price: '', sum: `− ${formatSum(prepayment)}` }]
+              : []),
+            ...(debt > 0
+              ? [{ name: 'Долг', qty: '', price: '', sum: `− ${formatSum(debt)}` }]
+              : []),
           ],
-          amount: formatSum(amount),
-          amountWords: sumInWords(amount),
+          amount: formatSum(toPay),
+          amountWords: sumInWords(toPay),
           cashier: this.staff.myName(),
         };
         this.receipt.set(r.number);
@@ -223,12 +311,46 @@ export class CheckoutDialog {
       this.notify.error('common.requiredTitle', 'blacklist.toast.required');
       return;
     }
+    // Предоплата + Сумма меньше, чем К оплате — сначала подтверждение с причиной долга.
+    if (this.debt() > 0) {
+      this.debtReason.set(
+        this.transloco.translate('rooms.debt.reasonDefault', { room: room.number }),
+      );
+      this.debtTried.set(false);
+      this.debtOpen.set(true);
+      return;
+    }
+    this.doCheckout(null);
+  }
+
+  /** «Выселить и записать в долг». */
+  protected confirmDebt(): void {
+    this.debtTried.set(true);
+    if (this.debtReasonInvalid()) {
+      this.notify.error('common.requiredTitle', 'rooms.debt.reasonRequired');
+      return;
+    }
+    this.doCheckout(this.debtReason().trim());
+  }
+
+  /** Выселение; debtReason — после успеха записать недоплату в «Долги». */
+  private doCheckout(debtReason: string | null): void {
+    const room = this.checkoutRoom();
+    const docs = this.checkoutDocs();
+    if (!room || !docs.length) {
+      return;
+    }
     const leaving = room.guests.filter((g) => docs.includes(g.doc));
+    const debt = debtReason !== null ? this.debt() : 0;
+    const debtor = this.debtor();
     const banned = this.toBlacklist();
     this.busy.set(true);
     this.book
       .checkout(room.number, docs, {
         amount: this.checkoutAmount() ?? 0,
+        prepayment: this.prepayment(),
+        paid: this.paid() ?? 0,
+        debt,
         payment: this.payment(),
         paidCard: this.mixed() ? (this.paidCard() ?? 0) : null,
         paidCash: this.mixed() ? (this.paidCash() ?? 0) : null,
@@ -240,7 +362,11 @@ export class CheckoutDialog {
       next: (updated) => {
         this.checkedOut.emit(updated);
         this.busy.set(false);
+        this.debtOpen.set(false);
         this.checkoutOpen.set(false);
+        if (debt > 0 && debtReason !== null) {
+          this.saveDebt(debtor, debtReason, debt);
+        }
         if (updated.guests.length) {
           this.notify.success('rooms.toast.checkedOutPartTitle', 'rooms.toast.checkedOutPartText', {
             count: leaving.length,
@@ -265,6 +391,34 @@ export class CheckoutDialog {
       },
       error: (e: unknown) => this.fail(e),
     });
+  }
+
+  /** Недоплата → таблица «Платежи и расходы → Долги». */
+  private saveDebt(debtor: string, reason: string, sum: number): void {
+    this.debts
+      .create({
+        debtor,
+        reason,
+        sum,
+        date: localDateTimeSecToIso(new Date()) ?? `${this.today}T00:00:00`,
+        who: this.staff.myName(),
+      })
+      .subscribe({
+        next: () =>
+          setTimeout(
+            () =>
+              this.notify.success('rooms.debt.savedTitle', 'rooms.debt.savedText', {
+                name: debtor,
+                sum: formatSum(sum),
+              }),
+            4500,
+          ),
+        error: () =>
+          this.notify.error('rooms.debt.saveErrorTitle', 'rooms.debt.saveErrorText', {
+            name: debtor,
+            sum: formatSum(sum),
+          }),
+      });
   }
 
   protected guestInitials(name: string): string {

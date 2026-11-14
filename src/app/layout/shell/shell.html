@@ -156,7 +156,9 @@
 } @else {
   <!-- Мобильная версия -->
   <div class="flex h-dvh flex-col">
-    <main id="main" tabindex="-1" class="flex min-h-0 flex-1 flex-col outline-none">
+    <!-- overflow-y-auto: страницы без своей прокрутки (настройки, журнал, пользователи)
+         прокручиваются здесь и не залезают под нижнее меню -->
+    <main id="main" tabindex="-1" class="flex min-h-0 flex-1 flex-col overflow-y-auto outline-none">
       <router-outlet />
     </main>
     <nav

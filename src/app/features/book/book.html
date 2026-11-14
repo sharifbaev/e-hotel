@@ -25,6 +25,17 @@
         <button
           pButton
           type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="!selected()"
+          (click)="openPrepay()"
+        >
+          <app-icon name="receipt" />
+          <span pButtonLabel>{{ 'book.prepay' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
           severity="danger"
           [outlined]="true"
           [disabled]="!selected()"
@@ -60,7 +71,7 @@
         [getRowId]="rowId"
         emptyText="book.empty"
         noMatchText="guests.noMatches"
-        [minWidth]="960"
+        [minWidth]="1080"
         (selection)="select($event)"
         [details]="false"
         (rowDoubleClick)="openInfo($event)"
@@ -230,6 +241,17 @@
           severity="secondary"
           [outlined]="true"
           class="h-12"
+          (click)="openPrepay()"
+        >
+          <app-icon name="receipt" />
+          <span pButtonLabel>{{ 'book.prepay' | transloco }}</span>
+        </button>
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          class="h-12"
           (click)="openEdit()"
         >
           <app-icon name="edit" />
@@ -296,6 +318,104 @@
     </button>
     <button pButton type="button" [loading]="editSaving()" (click)="saveEdit()">
       @if (!editSaving()) {
+        <app-icon name="check" />
+      }
+      <span pButtonLabel>{{ 'common.save' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>
+
+<!-- Внести предоплату: сумма прибавляется к предоплате гостя -->
+<p-dialog
+  [(visible)]="prepayOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'book.prepayTitle' | transloco"
+  [style]="{ width: '440px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  @if (prepayOpen() && selected(); as r) {
+    <form class="flex flex-col gap-4" (ngSubmit)="savePrepay()">
+      <div class="flex items-center gap-3 rounded-xl bg-subtle p-3.5">
+        <span
+          class="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-[13px] font-semibold text-white"
+          aria-hidden="true"
+          >{{ initials(r) }}</span
+        >
+        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span class="truncate text-[15px] font-semibold">{{ name(r) }}</span>
+          <span class="text-[13px] text-muted"
+            >{{ 'guests.col.room' | transloco }} {{ r.reg.room }} ·
+            {{ r.reg.amount | sum }} {{ 'common.currency' | transloco }} /
+            {{ 'book.perDay' | transloco }}</span
+          >
+        </span>
+      </div>
+      <div class="flex items-center justify-between rounded-xl border border-line px-3.5 py-2.5 text-sm">
+        <span class="text-muted">{{ 'book.prepayCurrent' | transloco }}</span>
+        <span class="font-semibold tabular-nums"
+          >{{ r.reg.prepayment | sum }} {{ 'common.currency' | transloco }}</span
+        >
+      </div>
+      <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+        <div class="field">
+          <label for="pp-sum" class="field-label"
+            >{{ 'book.prepayAmount' | transloco }} <span class="req">*</span></label
+          >
+          <div class="relative">
+            <input
+              id="pp-sum"
+              name="ppSum"
+              pInputText
+              appSum
+              placeholder="0"
+              class="w-full pr-12"
+              [ngModel]="prepayAmount()"
+              (ngModelChange)="prepayAmount.set($event)"
+              [invalid]="prepayInvalid()"
+              [attr.aria-invalid]="prepayInvalid()"
+            />
+            <span
+              class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+              >{{ 'common.currency' | transloco }}</span
+            >
+          </div>
+        </div>
+        <div class="field">
+          <label for="pp-pay" class="field-label">{{ 'guests.reg.payment' | transloco }}</label>
+          <p-select
+            inputId="pp-pay"
+            name="ppPay"
+            [options]="prepayMethods()"
+            [ngModel]="prepayMethod()"
+            (ngModelChange)="prepayMethod.set($event)"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-p>{{ p | payLabel }}</ng-template>
+            <ng-template #item let-p>{{ p | payLabel }}</ng-template>
+          </p-select>
+        </div>
+      </div>
+      @if ((prepayAmount() ?? 0) > 0) {
+        <div class="rise flex items-center justify-between rounded-xl bg-accent-tint px-3.5 py-2.5 text-sm">
+          <span class="text-ink-2">{{ 'book.prepayAfter' | transloco }}</span>
+          <span class="font-semibold tabular-nums"
+            >{{ r.reg.prepayment + (prepayAmount() ?? 0) | sum }}
+            {{ 'common.currency' | transloco }}</span
+          >
+        </div>
+      }
+    </form>
+  }
+  <ng-template #footer>
+    <button pButton type="button" severity="secondary" [outlined]="true" (click)="prepayOpen.set(false)">
+      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+    </button>
+    <button pButton type="button" [loading]="prepaySaving()" (click)="savePrepay()">
+      @if (!prepaySaving()) {
         <app-icon name="check" />
       }
       <span pButtonLabel>{{ 'common.save' | transloco }}</span>

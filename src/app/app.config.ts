@@ -30,7 +30,7 @@ export const appConfig: ApplicationConfig = {
     provideTransloco({
       config: {
         availableLangs: ['ru', 'uz-Latn', 'uz-Cyrl'],
-        defaultLang: 'ru',
+        defaultLang: 'uz-Latn',
         fallbackLang: 'ru',
         reRenderOnLangChange: true,
         missingHandler: { useFallbackTranslation: true, logMissingKey: isDevMode() },

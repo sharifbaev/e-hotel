@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DatePicker } from 'primeng/datepicker';
+import { Dialog } from 'primeng/dialog';
+import { catchError, map, of } from 'rxjs';
+import { DebtsService } from '../../core/data/debts.service';
 import { APP_TODAY } from '../../core/api/mock-api';
 import { DashboardService } from '../../core/data/dashboard.service';
 import { ExpensesService } from '../../core/data/expenses.service';
@@ -29,6 +32,10 @@ interface Kpi {
   iconBg: string;
   iconFg: string;
   link: string;
+  /** Query-параметры ссылки (например, вкладка «Долги»). */
+  query?: Record<string, string>;
+  /** Карточка открывает окно вместо перехода (Прибыль → откуда доход). */
+  action?: 'income';
   /** Мобильная карточка на всю ширину. */
   wide?: boolean;
 }
@@ -48,6 +55,7 @@ const FUND_BAR: Record<RoomStatus, string> = {
     RouterLink,
     TranslocoPipe,
     DatePicker,
+    Dialog,
     PayBadge,
     FinanceChart,
     SumPipe,
@@ -59,6 +67,7 @@ const FUND_BAR: Record<RoomStatus, string> = {
 export class DashboardPage {
   private readonly dashboard = inject(DashboardService);
   private readonly expensesApi = inject(ExpensesService);
+  private readonly debtsApi = inject(DebtsService);
   protected readonly bp = inject(BreakpointService);
   protected readonly today = inject(APP_TODAY);
 
@@ -102,12 +111,50 @@ export class DashboardPage {
   );
   protected readonly expensesLoading = computed(() => this.expensesRes.isLoading());
 
-  protected readonly totals = computed(() => {
-    const daily = this.summary()?.daily ?? [];
-    const revenue = daily.reduce((s, d) => s + d.revenue, 0);
-    const expenses = daily.reduce((s, d) => s + d.expenses, 0);
-    return { revenue, expenses, days: daily.length };
+  /** Открытые долги сейчас (GET /debts): сумма и количество. null — нет доступа / ошибка. */
+  private readonly debtsRes = rxResource({
+    stream: () =>
+      this.debtsApi.list().pipe(
+        map((list) => ({ total: list.reduce((s, d) => s + d.sum, 0), count: list.length })),
+        catchError(() => of(null)),
+      ),
   });
+  protected readonly debts = computed(() => (this.debtsRes.hasValue() ? this.debtsRes.value() : null));
+
+  protected readonly totals = computed(() => {
+    const s = this.summary();
+    const daily = s?.daily ?? [];
+    const income = s?.income ?? null;
+    // Доход: проживание + оплата долгов + доп. сервисы (оплаченные долги входят в прибыль).
+    const revenue = income
+      ? income.stay + income.debts + income.services
+      : daily.reduce((sum, d) => sum + d.revenue, 0);
+    const expenses = daily.reduce((sum, d) => sum + d.expenses, 0);
+    return { revenue, expenses, days: daily.length, income };
+  });
+
+  // ----- Окно «Откуда прибыль» -----
+  protected readonly incomeOpen = signal(false);
+  /** Строки дохода с долей от общего дохода; null у суммы — сервер ещё не присылает разбивку. */
+  protected readonly incomeRows = computed(() => {
+    const { revenue, income } = this.totals();
+    const rows: { key: string; hint: string; value: number | null; color: string }[] = [
+      { key: 'stay', hint: 'stayHint', value: income ? income.stay : revenue, color: '#0F766E' },
+      { key: 'debts', hint: 'debtsHint', value: income ? income.debts : null, color: '#E8A54B' },
+      { key: 'services', hint: 'servicesHint', value: income ? income.services : null, color: '#3B6FE0' },
+    ];
+    return rows.map((r) => ({
+      ...r,
+      pct: revenue && r.value ? Math.round((r.value / revenue) * 100) : 0,
+    }));
+  });
+
+  protected openKpi(k: Kpi, e: Event): void {
+    if (k.action === 'income') {
+      e.preventDefault();
+      this.incomeOpen.set(true);
+    }
+  }
 
   protected readonly kpis = computed<Kpi[]>(() => {
     const s = this.summary();
@@ -171,6 +218,19 @@ export class DashboardPage {
         link: '/expenses',
       },
       {
+        label: 'dashboard.kpi.debts',
+        ...money(this.debts()?.total ?? 0),
+        money: true,
+        note: 'dashboard.kpi.debtsNote',
+        noteParams: { count: this.debts()?.count ?? 0 },
+        noteClass: 'text-[#B54708]',
+        glyph: '!',
+        iconBg: '#FEF0C7',
+        iconFg: '#B54708',
+        link: '/payments',
+        query: { tab: 'debts' },
+      },
+      {
         label: 'dashboard.kpi.profit',
         ...money(revenue - expenses),
         money: true,
@@ -181,6 +241,7 @@ export class DashboardPage {
         iconBg: revenue - expenses < 0 ? '#FEECEB' : '#E6F4F2',
         iconFg: revenue - expenses < 0 ? '#B42318' : '#0B5A54',
         link: '/payments',
+        action: 'income',
       },
     ];
   });
@@ -200,8 +261,9 @@ export class DashboardPage {
       },
       { ...k[3], note: 'dashboard.kpi.sum', noteParams: {} },
       k[4],
-      // Прибыль — на всю ширину под остальными карточками.
-      { ...k[5], wide: true },
+      // Долги и прибыль — последней парой.
+      k[5],
+      k[6],
     ];
   });
 

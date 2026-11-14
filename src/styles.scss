@@ -659,6 +659,12 @@
   gap: 12px;
 }
 
+/* Мобильная форма: подпись в 2 строки у соседа не сдвигает поле — поля выравниваются по низу
+   (кроме полей с подсказкой под полем). */
+.reg-grid.reg-grid-compact > .field:not(:has(.hint)) {
+  justify-content: flex-end;
+}
+
 @media (max-width: 720px) {
   .reg-grid:not(.reg-grid-compact) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -836,4 +842,16 @@ main#main > :not(router-outlet) {
 
 .ag-floating-filter-body:has(.hs-ff) {
   width: 100%;
+}
+
+/* iOS Safari приближает экран, если у поля ввода шрифт меньше 16px.
+   На сенсорных экранах телефона все поля — 16px, автозума нет (масштаб пальцами остаётся). */
+@media (max-width: 767px) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select,
+  .p-inputtext,
+  .ag-input-field-input {
+    font-size: 16px !important;
+  }
 }

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Service, inject, signal } from '@angular/core';
-import { Observable, map, tap } from 'rxjs';
+import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_URL, localDateTime } from '../api/api';
 import { AuthService } from '../auth/auth.service';
 import { BlacklistDraft, BlacklistEntry } from '../models';
@@ -43,6 +43,24 @@ export class BlacklistService {
   find(doc: string): BlacklistEntry | null {
     const q = normalizeDoc(doc);
     return q ? (this.entries().find((e) => normalizeDoc(e.doc) === q) ?? null) : null;
+  }
+
+  /**
+   * Проверка документов на сервере (GET /blacklist/check?doc=…&doc=…) — актуальнее списка в памяти.
+   * При ошибке сети — проверка по загруженному списку.
+   */
+  check(docs: string[]): Observable<BlacklistEntry[]> {
+    const local = () =>
+      docs.map((d) => this.find(d)).filter((e): e is BlacklistEntry => e !== null);
+    if (!docs.length) {
+      return of([]);
+    }
+    return this.http
+      .get<BlacklistEntry[]>(`${this.api}/blacklist/check`, { params: { doc: docs } })
+      .pipe(
+        map((list) => list.map(norm)),
+        catchError(() => of(local())),
+      );
   }
 
   add(draft: BlacklistDraft): Observable<BlacklistEntry> {

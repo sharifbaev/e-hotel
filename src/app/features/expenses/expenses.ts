@@ -27,13 +27,21 @@ import { Textarea } from 'primeng/textarea';
 import { Observable } from 'rxjs';
 import { APP_TODAY, ApiError } from '../../core/api/mock-api';
 import { DebtsService } from '../../core/data/debts.service';
+import { PaymentTypesService } from '../../core/data/payment-types.service';
+import { PayLabelPipe } from '../../shared/format/pay-label.pipe';
 import { ExpensesService } from '../../core/data/expenses.service';
 import { ExtraServicesService } from '../../core/data/extra-services.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { StaffService } from '../../core/data/staff.service';
 import { ServiceTypesService } from '../../core/data/service-types.service';
-import { Expense, ExpenseDraft, LedgerKind, ServiceTypeItem } from '../../core/models';
+import {
+  Expense,
+  ExpenseDraft,
+  LedgerKind,
+  MIXED_PAYMENT,
+  ServiceTypeItem,
+} from '../../core/models';
 import { NotifyService } from '../../core/notify/notify.service';
 import {
   formatDateTime,
@@ -101,6 +109,7 @@ const KIND_CFG: Record<
     DmyPipe,
     DayMonthPipe,
     PluralPipe,
+    PayLabelPipe,
   ],
   templateUrl: './expenses.html',
 })
@@ -461,6 +470,89 @@ export class ExpensesPage {
         this.notify.success(`${this.p()}.toast.deletedTitle`, `${this.p()}.toast.deletedText`, {
           reason: this.titleOf(e),
         });
+      },
+    });
+  }
+
+  // ----- Оплатить долг (полностью — долг удаляется, частично — остаётся остаток) -----
+  private readonly debtsApi = inject(DebtsService);
+  private readonly payTypes = inject(PaymentTypesService);
+  protected readonly payOpen = signal(false);
+  protected readonly payTried = signal(false);
+  protected readonly payAmount = signal<number | null>(null);
+  protected readonly payMethod = signal<string>('cash');
+  /** Способы оплаты без «Смешанный» и «Не оплачено». */
+  protected readonly payMethods = computed(() =>
+    this.payTypes
+      .items()
+      .map((t) => t.code)
+      .filter((c) => c !== MIXED_PAYMENT && c !== 'unpaid'),
+  );
+  /** Остаток долга после оплаты. */
+  protected readonly payRest = computed(() =>
+    Math.max(0, (this.selected()?.sum ?? 0) - (this.payAmount() ?? 0)),
+  );
+  /** Сумма не указана или больше долга. */
+  protected readonly payInvalid = computed(() => {
+    const v = this.payAmount() ?? 0;
+    return this.payTried() && (!(v > 0) || v > (this.selected()?.sum ?? 0));
+  });
+
+  protected openPay(): void {
+    const e = this.selected();
+    if (!e || this.kind() !== 'debt') {
+      return;
+    }
+    this.payTypes.ensureLoaded();
+    this.payAmount.set(e.sum);
+    this.payMethod.set(this.payMethods()[0] ?? 'cash');
+    this.payTried.set(false);
+    this.actionOpen.set(false);
+    this.payOpen.set(true);
+  }
+
+  protected savePay(): void {
+    const e = this.selected();
+    if (!e || this.saving()) {
+      return;
+    }
+    this.payTried.set(true);
+    const amount = this.payAmount() ?? 0;
+    if (!(amount > 0) || amount > e.sum) {
+      this.notify.error('common.saveError', amount > e.sum ? 'debts.pay.tooMuch' : 'debts.pay.required', {
+        sum: formatSum(e.sum),
+      });
+      return;
+    }
+    this.saving.set(true);
+    this.debtsApi.pay(e.id, { amount, payment: this.payMethod() }).subscribe({
+      next: (rest) => {
+        this.saving.set(false);
+        this.payOpen.set(false);
+        if (rest) {
+          this.items.update((list) => list.map((x) => (x.id === e.id ? rest : x)));
+          this.selected.set(rest);
+          this.notify.success('debts.pay.partTitle', 'debts.pay.partText', {
+            name: e.debtor ?? '',
+            sum: formatSum(amount),
+            rest: formatSum(rest.sum),
+          });
+        } else {
+          this.items.update((list) => list.filter((x) => x.id !== e.id));
+          this.selected.set(null);
+          this.grid()?.clearSelection();
+          this.notify.success('debts.pay.fullTitle', 'debts.pay.fullText', {
+            name: e.debtor ?? '',
+            sum: formatSum(amount),
+          });
+        }
+      },
+      error: (err: unknown) => {
+        this.saving.set(false);
+        this.notify.error(
+          'common.saveError',
+          err instanceof ApiError ? `errors.${err.code}` : 'errors.common.unknown',
+        );
       },
     });
   }

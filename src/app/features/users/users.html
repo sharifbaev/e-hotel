@@ -12,18 +12,26 @@
       </div>
       <p class="mt-1 mb-0 text-[13px] text-muted">{{ 'users.subtitle' | transloco }}</p>
     </div>
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-2" [class.w-full]="bp.isMobile()">
       <button
         pButton
         type="button"
         severity="secondary"
         [outlined]="true"
         aria-haspopup="dialog"
+        [class.flex-1]="bp.isMobile()"
         (click)="rolesOpen.set(true)"
       >
         <app-icon name="shield" />
         <span pButtonLabel>{{ 'users.rolesButton' | transloco }}</span>
       </button>
+      @if (bp.isMobile()) {
+        <!-- Телефон: действия с сотрудником — в шторке по нажатию на карточку -->
+        <button pButton type="button" class="flex-1" (click)="openAdd()">
+          <app-icon name="plus" />
+          <span pButtonLabel>{{ 'common.add' | transloco }}</span>
+        </button>
+      } @else {
       <button
         pButton
         type="button"
@@ -74,9 +82,102 @@
         <app-icon name="plus" />
         <span pButtonLabel>{{ 'common.add' | transloco }}</span>
       </button>
+      }
     </div>
   </div>
 
+  @if (bp.isMobile()) {
+    <!-- ===== Мобильная версия: поиск, карточки, пагинация ===== -->
+    <label
+      class="flex h-11 items-center gap-2 rounded-xl border border-field bg-white px-3 text-muted focus-within:border-accent"
+    >
+      <app-icon name="search" />
+      <input
+        type="search"
+        class="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-ink outline-none"
+        [attr.aria-label]="'users.search' | transloco"
+        [placeholder]="'users.search' | transloco"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
+    </label>
+
+    <div class="flex flex-col gap-2.5">
+      @if (loading()) {
+        @for (s of [0, 1, 2]; track s) {
+          <div class="flex items-center gap-3 rounded-[14px] border border-line-2 bg-white p-3.5">
+            <div class="sk size-10 rounded-full"></div>
+            <div class="flex flex-1 flex-col gap-1.5">
+              <div class="sk h-3 w-3/5"></div>
+              <div class="sk h-2.5 w-2/5"></div>
+            </div>
+          </div>
+        }
+      } @else if (pageRows().length === 0) {
+        <div class="flex flex-col items-center gap-2 px-4 py-12 text-center">
+          <span class="text-[15px] font-semibold">{{ 'common.noData' | transloco }}</span>
+          <span class="text-[13px] text-muted">{{
+            (search() ? 'users.noMatches' : 'users.empty') | transloco
+          }}</span>
+        </div>
+      } @else {
+        @for (u of pageRows(); track u.id; let i = $index) {
+          <button
+            type="button"
+            class="tap rise flex cursor-pointer flex-col gap-2.5 rounded-[14px] border border-line-2 bg-white px-3.5 py-3 text-left"
+            [style.animation-delay.ms]="i * 30"
+            (click)="openCard(u)"
+          >
+            <span class="flex w-full items-center gap-3">
+              <span
+                class="flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold"
+                [style.background]="tone(u).bg"
+                [style.color]="tone(u).fg"
+                aria-hidden="true"
+                >{{ userInitials(u) }}</span
+              >
+              <span class="flex min-w-0 flex-1 flex-col gap-px">
+                <span class="truncate text-[15px] font-semibold text-ink"
+                  >{{ u.name }}
+                  @if (u.id === meId()) {
+                    <span class="text-xs font-normal text-muted">· {{ 'users.you' | transloco }}</span>
+                  }
+                </span>
+                <span class="truncate text-xs text-muted">{{ u.login }}{{ u.phone ? ' · ' + u.phone : '' }}</span>
+              </span>
+              <span
+                class="max-w-[40%] shrink-0 truncate rounded-full px-2.5 py-[3px] text-xs font-semibold"
+                [style.background]="tone(u).bg"
+                [style.color]="tone(u).fg"
+                >{{ u.role | roleLabel: u.roleName }}</span
+              >
+            </span>
+            <span class="flex w-full justify-between gap-2 border-t border-chip pt-2.5 text-xs">
+              <span
+                class="font-semibold"
+                [class.text-success]="u.active"
+                [class.text-danger]="!u.active"
+                >{{ (u.active ? 'users.active' : 'users.blocked') | transloco }}</span
+              >
+              <span class="truncate text-ink-2" [class.text-success]="u.online">{{ lastLogin(u) }}</span>
+            </span>
+          </button>
+        }
+      }
+    </div>
+
+    @if (!loading() && filtered().length > 0) {
+      <div class="overflow-hidden rounded-xl border border-line bg-white [&>*>div]:border-t-0">
+        <app-table-pager
+          [page]="page()"
+          [pageCount]="pageCount()"
+          [total]="filtered().length"
+          [(pageSize)]="pageSize"
+          (go)="goPage($event)"
+        />
+      </div>
+    }
+  } @else {
   <section class="overflow-hidden rounded-xl border border-line bg-white">
     <app-data-grid
       [rows]="users()"
@@ -90,6 +191,7 @@
       (selection)="select($event)"
     />
   </section>
+  }
 
 </div>
 
@@ -367,3 +469,61 @@
     </button>
   </ng-template>
 </p-dialog>
+
+<!-- Телефон: действия с сотрудником -->
+<app-sheet
+  [(visible)]="sheetOpen"
+  [title]="selected()?.name ?? ''"
+  [subtitle]="selected() ? selected()!.login + ' · ' + (selected()!.role | roleLabel: selected()!.roleName) : ''"
+>
+  @if (selected(); as u) {
+    <div class="flex flex-col gap-2 pt-1 pb-2">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="h-12"
+        (click)="fromSheet(openEdit.bind(this))"
+      >
+        <app-icon name="edit" />
+        <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="h-12"
+        (click)="fromSheet(resetPassword.bind(this))"
+      >
+        <app-icon name="key" />
+        <span pButtonLabel>{{ 'users.resetPassword' | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="h-12"
+        [disabled]="u.id === meId()"
+        (click)="fromSheet(toggleBlock.bind(this))"
+      >
+        <app-icon name="lock" />
+        <span pButtonLabel>{{ (u.active ? 'users.block' : 'users.unblock') | transloco }}</span>
+      </button>
+      <button
+        pButton
+        type="button"
+        severity="danger"
+        [outlined]="true"
+        class="h-12"
+        [disabled]="u.id === meId()"
+        (click)="fromSheet(askDelete.bind(this))"
+      >
+        <app-icon name="trash" />
+        <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
+      </button>
+    </div>
+  }
+</app-sheet>

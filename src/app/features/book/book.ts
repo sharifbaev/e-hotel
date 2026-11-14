@@ -9,6 +9,9 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ColDef } from 'ag-grid-community';
 import { ButtonModule } from 'primeng/button';
 import { Dialog } from 'primeng/dialog';
+import { InputText } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
+import { SumInputDirective } from '../../shared/forms/sum-input.directive';
 import { BlacklistService } from '../../core/data/blacklist.service';
 import { BookService } from '../../core/data/book.service';
 import { LanguageService } from '../../core/i18n/language.service';
@@ -16,7 +19,7 @@ import { PaymentTypesService } from '../../core/data/payment-types.service';
 import { PayLabelPipe } from '../../shared/format/pay-label.pipe';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { NotifyService } from '../../core/notify/notify.service';
-import { BookEntry, GuestRegistration, PaymentMethod } from '../../core/models';
+import { BookEntry, GuestRegistration, MIXED_PAYMENT, PaymentMethod } from '../../core/models';
 import { formatDateTime, formatDmy, formatSum, formatTime, initials } from '../../shared/format/format';
 import { DayMonthPipe, SumPipe } from '../../shared/format/format.pipes';
 import { avatarCell, pillCell } from '../../shared/grid/cells';
@@ -67,6 +70,9 @@ const fullName = (e: BookEntry) => `${e.reg.lastName} ${e.reg.firstName}`.trim()
     TranslocoPipe,
     ButtonModule,
     Dialog,
+    InputText,
+    Select,
+    SumInputDirective,
     Icon,
     Sheet,
     DataGrid,
@@ -202,13 +208,23 @@ export class BookPage {
       },
       {
         colId: 'sum',
-        headerName: t('guests.col.sum'),
+        headerName: t('book.col.price'),
         flex: 1,
         minWidth: 120,
         valueGetter: (p) => p.data?.reg.amount ?? 0,
         valueFormatter: (p) => formatSum(p.value),
         ...sumFilter<BookRow>(),
         cellClass: 'font-semibold tabular-nums',
+      },
+      {
+        colId: 'prepayment',
+        headerName: t('book.col.prepayment'),
+        flex: 1,
+        minWidth: 120,
+        valueGetter: (p) => p.data?.reg.prepayment ?? 0,
+        valueFormatter: (p) => (p.value ? formatSum(p.value) : '—'),
+        ...sumFilter<BookRow>(),
+        cellClass: 'tabular-nums text-ink-2',
       },
       {
         colId: 'payment',
@@ -358,6 +374,12 @@ export class BookPage {
               label: 'guests.reg.amount',
               value: `${formatSum(g.amount)} ${this.transloco.translate('common.currency')}`,
             },
+            {
+              label: 'book.col.prepayment',
+              value: g.prepayment
+                ? `${formatSum(g.prepayment)} ${this.transloco.translate('common.currency')}`
+                : '—',
+            },
             { label: 'guests.reg.payment', value: this.payTypes.label(g.payment) },
           ],
         },
@@ -427,6 +449,64 @@ export class BookPage {
         this.notify.success('common.savedTitle', 'book.toast.updatedText', { name: fullName(e) });
       },
       error: (e: unknown) => this.fail(() => this.editSaving.set(false), e),
+    });
+  }
+
+  // ===== Внести предоплату (сервер прибавляет к предоплате гостя) =====
+  protected readonly prepayOpen = signal(false);
+  protected readonly prepaySaving = signal(false);
+  protected readonly prepayTried = signal(false);
+  protected readonly prepayAmount = signal<number | null>(null);
+  protected readonly prepayMethod = signal<PaymentMethod>('cash');
+  /** Способы оплаты без «Смешанный» и «Не оплачено». */
+  protected readonly prepayMethods = computed(() =>
+    this.payTypes
+      .items()
+      .map((t) => t.code)
+      .filter((c) => c !== MIXED_PAYMENT && c !== 'unpaid'),
+  );
+  protected readonly prepayInvalid = computed(
+    () => this.prepayTried() && !((this.prepayAmount() ?? 0) > 0),
+  );
+
+  protected openPrepay(): void {
+    const r = this.selected();
+    if (!r) {
+      return;
+    }
+    this.fromSheet();
+    const current = r.reg.payment;
+    this.prepayAmount.set(null);
+    this.prepayMethod.set(
+      this.prepayMethods().includes(current) ? current : (this.prepayMethods()[0] ?? 'cash'),
+    );
+    this.prepayTried.set(false);
+    this.prepayOpen.set(true);
+  }
+
+  protected savePrepay(): void {
+    const r = this.selected();
+    if (!r || this.prepaySaving()) {
+      return;
+    }
+    this.prepayTried.set(true);
+    const amount = this.prepayAmount() ?? 0;
+    if (!(amount > 0)) {
+      this.notify.error('guests.reg.requiredTitle', 'book.toast.prepayRequired');
+      return;
+    }
+    this.prepaySaving.set(true);
+    this.book.addPrepayment(r.id, { amount, payment: this.prepayMethod() }).subscribe({
+      next: (e) => {
+        this.prepaySaving.set(false);
+        this.prepayOpen.set(false);
+        this.entries.update((list) => list.map((x) => (x.id === e.id ? e : x)));
+        this.notify.success('book.toast.prepaidTitle', 'book.toast.prepaidText', {
+          name: fullName(e),
+          sum: formatSum(amount),
+        });
+      },
+      error: (e: unknown) => this.fail(() => this.prepaySaving.set(false), e),
     });
   }
 

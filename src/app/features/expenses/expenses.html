@@ -33,6 +33,19 @@
         >
           <app-icon name="refresh" [class.spin]="loading()" />
         </button>
+        @if (kind() === 'debt') {
+          <button
+            pButton
+            type="button"
+            severity="success"
+            [outlined]="true"
+            [disabled]="!selected()"
+            (click)="openPay()"
+          >
+            <app-icon name="wallet" />
+            <span pButtonLabel>{{ 'debts.pay.button' | transloco }}</span>
+          </button>
+        }
         <button
           pButton
           type="button"
@@ -143,7 +156,7 @@
         [showClear]="true"
         [showIcon]="true"
         iconDisplay="input"
-        [touchUI]="true"
+        appendTo="body"
         [fluid]="true"
         [placeholder]="p() + '.mobile.anyDate' | transloco"
         [ariaLabel]="p() + '.col.date' | transloco"
@@ -269,6 +282,12 @@
           <span pButtonLabel>{{ p() + '.mobile.yesDelete' | transloco }}</span>
         </button>
       } @else {
+        @if (kind() === 'debt') {
+          <button pButton type="button" severity="success" class="h-12" (click)="openPay()">
+            <app-icon name="wallet" />
+            <span pButtonLabel>{{ 'debts.pay.button' | transloco }}</span>
+          </button>
+        }
         <button
           pButton
           type="button"
@@ -492,3 +511,123 @@
   [busy]="saving()"
   (confirm)="doDelete()"
 />
+
+<!-- Оплатить долг: полностью — долг закрывается, частично — остаётся остаток -->
+<p-dialog
+  [(visible)]="payOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'debts.pay.title' | transloco"
+  [style]="{ width: '440px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  @if (payOpen() && selected(); as d) {
+    <form class="flex flex-col gap-4" (ngSubmit)="savePay()">
+      <div class="flex items-center gap-3 rounded-xl bg-subtle p-3.5">
+        <span
+          class="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#FEF0C7] text-[#B54708]"
+          aria-hidden="true"
+        >
+          <app-icon name="receipt" />
+        </span>
+        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span class="truncate text-[15px] font-semibold">{{ d.debtor }}</span>
+          <span class="truncate text-[13px] text-muted">{{ d.reason }}</span>
+        </span>
+      </div>
+      <div class="field">
+        <label for="dp-debt" class="field-label">{{ 'debts.pay.debt' | transloco }}</label>
+        <div class="relative">
+          <input
+            id="dp-debt"
+            name="dpDebt"
+            pInputText
+            appSum
+            class="w-full cursor-default !bg-subtle pr-12 font-semibold"
+            [ngModel]="d.sum"
+            [readonly]="true"
+            tabindex="-1"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+            >{{ 'common.currency' | transloco }}</span
+          >
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
+        <div class="field">
+          <label for="dp-sum" class="field-label"
+            >{{ 'debts.pay.amount' | transloco }} <span class="req">*</span></label
+          >
+          <div class="relative">
+            <input
+              id="dp-sum"
+              name="dpSum"
+              pInputText
+              appSum
+              placeholder="0"
+              class="w-full pr-12"
+              [ngModel]="payAmount()"
+              (ngModelChange)="payAmount.set($event)"
+              [invalid]="payInvalid()"
+              [attr.aria-invalid]="payInvalid()"
+            />
+            <span
+              class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+              >{{ 'common.currency' | transloco }}</span
+            >
+          </div>
+        </div>
+        <div class="field">
+          <label for="dp-pay" class="field-label">{{ 'debts.pay.method' | transloco }}</label>
+          <p-select
+            inputId="dp-pay"
+            name="dpPay"
+            [options]="payMethods()"
+            [ngModel]="payMethod()"
+            (ngModelChange)="payMethod.set($event)"
+            appendTo="body"
+            [fluid]="true"
+          >
+            <ng-template #selectedItem let-p>{{ p | payLabel }}</ng-template>
+            <ng-template #item let-p>{{ p | payLabel }}</ng-template>
+          </p-select>
+        </div>
+      </div>
+      @if ((payAmount() ?? 0) > d.sum) {
+        <div class="rise rounded-xl bg-[#FEF3F2] px-3.5 py-2.5 text-sm text-danger" role="status">
+          {{ 'debts.pay.tooMuch' | transloco: { sum: (d.sum | sum) } }}
+        </div>
+      } @else if ((payAmount() ?? 0) > 0) {
+        @if (payRest() === 0) {
+          <div class="rise rounded-xl bg-[#ECFDF3] px-3.5 py-2.5 text-sm font-semibold text-success" role="status">
+            {{ 'debts.pay.willClose' | transloco }}
+          </div>
+        } @else {
+          <div
+            class="rise flex items-center justify-between rounded-xl bg-[#FFFAEB] px-3.5 py-2.5 text-sm"
+            role="status"
+          >
+            <span class="text-[#B54708]">{{ 'debts.pay.rest' | transloco }}</span>
+            <span class="font-semibold tabular-nums text-[#B54708]"
+              >{{ payRest() | sum }} {{ 'common.currency' | transloco }}</span
+            >
+          </div>
+        }
+      }
+    </form>
+  }
+  <ng-template #footer>
+    <button pButton type="button" severity="secondary" [outlined]="true" (click)="payOpen.set(false)">
+      <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+    </button>
+    <button pButton type="button" severity="success" [loading]="saving()" (click)="savePay()">
+      @if (!saving()) {
+        <app-icon name="check" />
+      }
+      <span pButtonLabel>{{ 'debts.pay.submit' | transloco }}</span>
+    </button>
+  </ng-template>
+</p-dialog>

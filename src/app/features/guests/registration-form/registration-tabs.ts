@@ -211,16 +211,18 @@ export class RegistrationTabs {
       seen.add(doc);
     }
 
-    const banned = list
-      .map((d) => this.blacklist.find(d.doc))
-      .filter((e): e is BlacklistEntry => e !== null);
-    if (banned.length) {
-      this.pending = list;
-      this.banned.set(banned);
-      this.warnOpen.set(true);
-      return;
-    }
-    this.save(list);
+    // Чёрный список — проверка на сервере (GET /blacklist/check), при ошибке — по списку в памяти.
+    this.saving.set(true);
+    this.blacklist.check(list.map((d) => d.doc)).subscribe((banned: BlacklistEntry[]) => {
+      if (banned.length) {
+        this.saving.set(false);
+        this.pending = list;
+        this.banned.set(banned);
+        this.warnOpen.set(true);
+        return;
+      }
+      this.save(list);
+    });
   }
 
   /** confirmed — администратор подтвердил заселение гостя из чёрного списка. */

@@ -4,7 +4,14 @@ import { Observable, concatMap, from, map, of, tap, toArray } from 'rxjs';
 import { API_URL, localDateTime, normDocDates } from '../api/api';
 import { APP_TODAY } from '../api/mock-api';
 import { FiscalReceiptData, buildStayReceipt } from '../docs/fiscal-receipt-doc';
-import { BookEntry, CheckoutOptions, GuestRegistration, Room, RoomGuest } from '../models';
+import {
+  BookEntry,
+  CheckoutOptions,
+  GuestRegistration,
+  PrepaymentDraft,
+  Room,
+  RoomGuest,
+} from '../models';
 import { BlacklistService } from './blacklist.service';
 import { RoomsService, normRoom } from './rooms.service';
 import { StaffService } from './staff.service';
@@ -19,6 +26,7 @@ export function toRoomGuest(reg: GuestRegistration): RoomGuest {
     checkin: reg.checkin,
     checkout: reg.checkout,
     sum: reg.amount,
+    prepayment: reg.prepayment ?? 0,
     pay: reg.payment === 'unpaid' ? 'wait' : 'paid',
   };
 }
@@ -36,6 +44,7 @@ const normEntry = (e: BookEntry): BookEntry => ({
   receipt: e.receipt ?? null,
   reg: {
     ...normDocDates(e.reg),
+    prepayment: e.reg.prepayment ?? 0,
     checkin: localDateTime(e.reg.checkin),
     checkout: localDateTime(e.reg.checkout),
   },
@@ -87,6 +96,13 @@ export class BookService {
     );
   }
 
+  /** «Внести предоплату»: сервер прибавляет сумму к предоплате гостя и пишет в журнал. */
+  addPrepayment(id: number, draft: PrepaymentDraft): Observable<BookEntry> {
+    return this.http
+      .post<BookEntry>(`${this.api}/book/${id}/prepayments`, draft)
+      .pipe(map(normEntry));
+  }
+
   /** Номер фискального чека на итоговую сумму. */
   fiscalReceipt(room: string, amount: number, docs: string[] = []): Observable<ReceiptResponse> {
     return this.http.post<ReceiptResponse>(`${this.api}/fiscal/receipts`, { room, amount, docs });
@@ -101,6 +117,9 @@ export class BookService {
       .post<Room>(`${this.api}/rooms/${encodeURIComponent(room)}/checkout`, {
         docs,
         amount: opts.amount,
+        prepayment: opts.prepayment,
+        paid: opts.paid,
+        debt: opts.debt,
         payment: opts.payment,
         paidCard: opts.paidCard,
         paidCash: opts.paidCash,

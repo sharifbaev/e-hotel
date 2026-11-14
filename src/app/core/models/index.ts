@@ -121,7 +121,10 @@ export interface RoomGuest {
   checkin: IsoDateTime;
   /** Выезд ставится при выселении; у проживающего — null. */
   checkout: IsoDateTime | null;
+  /** Стоимость за день. */
   sum: number;
+  /** Внесённая предоплата (сумма всех предоплат); нет — 0. */
+  prepayment?: number;
   pay: PaymentStatus;
 }
 
@@ -212,7 +215,11 @@ export interface GuestRegistration extends GuestProfile {
   /** В форме заселения нет — фактические дата и время выезда ставятся при выселении. */
   checkout: IsoDateTime | null;
   purpose: VisitPurpose;
+  /** Стоимость за день (договорная). Итог при выселении = amount × количество дней. */
   amount: number;
+  /** Сумма предоплаты (всего внесено); 0 — предоплаты нет. */
+  prepayment: number;
+  /** Способ оплаты предоплаты; без предоплаты — unpaid. */
   payment: PaymentMethod;
   fiscalReceipt: boolean;
   sendEmehmon: boolean;
@@ -242,12 +249,25 @@ export interface BlacklistEntry {
 
 export type BlacklistDraft = Omit<BlacklistEntry, 'id' | 'addedAt' | 'addedBy'>;
 
+/** Оплата: «Внести предоплату» в «Книге» и «Оплатить» долг — сумма и способ оплаты. */
+export interface PrepaymentDraft {
+  amount: number;
+  payment: PaymentMethod;
+}
+
 /** Итог выселения: сумма, фискальный чек и (необязательно) чёрный список. */
 export interface CheckoutOptions {
+  /** К оплате за проживание: стоимость за день × количество дней (можно изменить). */
   amount: number;
+  /** Предоплата отмеченных гостей. */
+  prepayment: number;
+  /** «Сумма» — сколько гость оплатил при выселении. */
+  paid: number;
+  /** Недоплата: amount − prepayment − paid (не меньше 0); записывается в «Долги». */
+  debt: number;
   /** Способ оплаты при выселении — код из справочника «Способ оплаты». */
   payment: string;
-  /** Для «Смешанный» (mixed): сколько картой и сколько наличными (сумма = amount), иначе null. */
+  /** Для «Смешанный» (mixed): сколько картой и сколько наличными (сумма = paid), иначе null. */
   paidCard: number | null;
   paidCash: number | null;
   /** Номер сформированного фискального чека, null — чек не выдавался. */
@@ -383,6 +403,17 @@ export interface DashboardSummary {
   totalRooms: number;
   categories: { name: string; rooms: number; occupancy: number }[];
   arrivals: Arrival[];
+  /**
+   * Откуда доход за период (v1.5): проживание гостей (предоплаты + оплата при выселении),
+   * оплата долгов, дополнительные сервисы. Нет — старый сервер, доход = Σ daily.revenue.
+   */
+  income?: DashboardIncome | null;
+}
+
+export interface DashboardIncome {
+  stay: number;
+  debts: number;
+  services: number;
 }
 
 export type CommentStatus = 'new' | 'read';

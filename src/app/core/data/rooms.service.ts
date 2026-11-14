@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, map, tap } from 'rxjs';
 import { API_URL, localDateTime } from '../api/api';
-import { NewRoom, Room } from '../models';
+import { NewRoom, Room, RoomStatus } from '../models';
 
 /** Ответ /rooms: даты гостей — в местном формате «YYYY-MM-DDTHH:mm[:ss]». */
 export function normRoom(r: Room): Room {
@@ -11,6 +11,7 @@ export function normRoom(r: Room): Room {
     note: r.note ?? '',
     guests: (r.guests ?? []).map((g) => ({
       ...g,
+      prepayment: g.prepayment ?? 0,
       checkin: localDateTime(g.checkin),
       checkout: localDateTime(g.checkout),
     })),
@@ -84,6 +85,13 @@ export class RoomsService {
   /** Номер готов после уборки/ремонта. */
   markReady(number: string): Observable<Room> {
     return this.http.post<Room>(`${this.api}/rooms/${enc(number)}/ready`, null).pipe(map(normRoom));
+  }
+
+  /** Смена статуса номера: отправить на ремонт / уборку (PATCH /rooms/{number}/status). */
+  setStatus(number: string, status: RoomStatus, note = ''): Observable<Room> {
+    return this.http
+      .patch<Room>(`${this.api}/rooms/${enc(number)}/status`, { status, note })
+      .pipe(map(normRoom));
   }
 
   private remember(list: Room[]): void {

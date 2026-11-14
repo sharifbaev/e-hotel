@@ -92,15 +92,7 @@ const LINKS: MoreLink[] = [
     fg: '#344054',
     section: 'settings',
   },
-  {
-    path: '/ui-kit',
-    section: 'settings',
-    label: 'nav.uikit',
-    hint: 'more.uikitHint',
-    icon: 'dashboard',
-    bg: '#E6F4F2',
-    fg: '#0B5A54',
-  },
+  // UI-kit в мобильном «Ещё» не показываем — только в десктопном меню.
 ];
 
 /** «Ещё» — мобильный раздел: профиль, остальные разделы, язык, выход. */
@@ -112,7 +104,7 @@ const LINKS: MoreLink[] = [
       <h1 class="m-0 text-xl font-bold">{{ 'nav.more' | transloco }}</h1>
     </header>
     <div
-      class="no-scrollbar mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-4 overflow-y-auto p-4"
+      class="no-scrollbar mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col gap-4 overflow-y-auto p-4 *:shrink-0"
     >
       <div class="flex items-center gap-3 rounded-2xl border border-line-2 bg-white p-3.5">
         <span

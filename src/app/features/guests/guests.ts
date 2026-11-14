@@ -317,7 +317,7 @@ export class GuestsPage {
           const split = `${t('paymentShort.card')} ${formatSum(g.paidCard ?? 0)} · ${t('paymentShort.cash')} ${formatSum(g.paidCash ?? 0)}`;
           return `<span class="flex min-w-0 flex-col leading-tight"><span class="truncate">${esc(p.value)}</span><span class="truncate text-xs text-muted tabular-nums">${esc(split)}</span></span>`;
         },
-        tooltipValueGetter: (p) => {
+        tooltip: (p) => {
           const g = p.data;
           if (!g?.checkoutPayment) {
             return null;

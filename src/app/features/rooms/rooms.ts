@@ -13,6 +13,7 @@ import { Checkbox } from 'primeng/checkbox';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
+import { Textarea } from 'primeng/textarea';
 import { ApiError, APP_TODAY } from '../../core/api/mock-api';
 import { RoomQrService } from '../../core/data/room-qr.service';
 import { RoomsService } from '../../core/data/rooms.service';
@@ -47,6 +48,7 @@ type StatusFilter = RoomStatus | 'all';
     Dialog,
     InputText,
     Select,
+    Textarea,
     Icon,
     RoomStatusBadge,
     PayBadge,
@@ -249,6 +251,36 @@ export class RoomsPage {
         this.replace(updated);
         this.actionBusy.set(false);
         this.notify.success('rooms.toast.readyTitle', 'rooms.toast.readyText', {
+          room: room.number,
+        });
+      },
+      error: (e: unknown) => this.fail(e),
+    });
+  }
+
+  // ----- На ремонт (PATCH /rooms/{number}/status) -----
+  protected readonly repairRoom = signal<Room | null>(null);
+  protected readonly repairOpen = signal(false);
+  protected readonly repairNote = signal('');
+
+  protected askRepair(room: Room): void {
+    this.repairRoom.set(room);
+    this.repairNote.set('');
+    this.repairOpen.set(true);
+  }
+
+  protected sendToRepair(): void {
+    const room = this.repairRoom();
+    if (!room || this.actionBusy()) {
+      return;
+    }
+    this.actionBusy.set(true);
+    this.roomsApi.setStatus(room.number, 'repair', this.repairNote().trim()).subscribe({
+      next: (updated) => {
+        this.replace(updated);
+        this.actionBusy.set(false);
+        this.repairOpen.set(false);
+        this.notify.success('rooms.toast.repairTitle', 'rooms.toast.repairText', {
           room: room.number,
         });
       },

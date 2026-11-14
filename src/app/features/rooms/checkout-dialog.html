@@ -71,7 +71,77 @@
         </div>
       }
 
-      <!-- Способ оплаты, сумма (для «Смешанный» — картой + наличными) и фискальный чек -->
+      <!-- К оплате (стоимость за день × дни), предоплата, сумма; недоплата — в долг -->
+      <div class="field">
+        <label for="co-total" class="field-label">{{ 'rooms.checkoutToPay' | transloco }}</label>
+        <div class="relative">
+          <input
+            id="co-total"
+            pInputText
+            appSum
+            placeholder="0"
+            class="w-full cursor-default !bg-subtle pr-12 font-semibold"
+            [ngModel]="checkoutAmount()"
+            [readonly]="true"
+            tabindex="-1"
+            aria-describedby="co-total-hint"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+            >{{ 'common.currency' | transloco }}</span
+          >
+        </div>
+        <span id="co-total-hint" class="hint">{{
+          'rooms.checkoutCalc' | transloco: { calc: calc() }
+        }}</span>
+      </div>
+      <div class="field">
+        <label for="co-prepay" class="field-label">{{ 'rooms.checkoutPrepayment' | transloco }}</label>
+        <div class="relative">
+          <input
+            id="co-prepay"
+            pInputText
+            appSum
+            placeholder="0"
+            class="w-full cursor-default !bg-subtle pr-12 font-semibold"
+            [ngModel]="prepayment()"
+            [readonly]="true"
+            tabindex="-1"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+            >{{ 'common.currency' | transloco }}</span
+          >
+        </div>
+      </div>
+      <div class="field">
+        <label for="co-sum" class="field-label">{{ 'rooms.checkoutAmount' | transloco }}</label>
+        <div class="relative">
+          <input
+            id="co-sum"
+            pInputText
+            appSum
+            placeholder="0"
+            class="w-full pr-12"
+            [ngModel]="paid()"
+            (ngModelChange)="setPaid($event)"
+            aria-describedby="co-sum-hint"
+          />
+          <span
+            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+            >{{ 'common.currency' | transloco }}</span
+          >
+        </div>
+        @if (debt() > 0) {
+          <span id="co-sum-hint" class="hint font-semibold !text-[#B54708]" role="status">{{
+            'rooms.debt.note' | transloco: { sum: (debt() | sum) }
+          }}</span>
+        } @else {
+          <span id="co-sum-hint" class="hint">{{ 'rooms.checkoutPaidHint' | transloco }}</span>
+        }
+      </div>
+
+      <!-- Способ оплаты (для «Смешанный» — «К оплате» делится на картой + наличными) -->
       <div class="field">
         <label for="co-pay" class="field-label">{{ 'rooms.checkoutPayment' | transloco }}</label>
         <p-select
@@ -125,33 +195,6 @@
             </div>
           </div>
         </div>
-        <div class="flex items-center justify-between rounded-xl bg-subtle px-3.5 py-2.5 text-sm">
-          <span class="text-muted">{{ 'rooms.checkoutAmount' | transloco }}</span>
-          <span class="font-semibold"
-            >{{ checkoutAmount() | sum }} {{ 'common.currency' | transloco }}</span
-          >
-        </div>
-      } @else {
-      <div class="field">
-        <label for="co-sum" class="field-label">{{ 'rooms.checkoutAmount' | transloco }}</label>
-        <div class="relative">
-          <input
-            id="co-sum"
-            pInputText
-            appSum
-            placeholder="0"
-            class="w-full pr-12"
-            [ngModel]="checkoutAmount()"
-            (ngModelChange)="setAmount($event)"
-            aria-describedby="co-sum-hint"
-          />
-          <span
-            class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
-            >{{ 'common.currency' | transloco }}</span
-          >
-        </div>
-        <span id="co-sum-hint" class="hint">{{ 'rooms.checkoutAmountHint' | transloco }}</span>
-      </div>
       }
       @if (receipt(); as num) {
         <div
@@ -162,7 +205,7 @@
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="font-semibold">{{ 'rooms.receiptDone' | transloco: { number: num } }}</span>
             <span class="text-xs text-ink-2"
-              >{{ checkoutAmount() | sum }} {{ 'common.currency' | transloco }}</span
+              >{{ paid() | sum }} {{ 'common.currency' | transloco }}</span
             >
           </span>
           <button
@@ -263,6 +306,86 @@
       }}</span>
     </button>
   </ng-template>
+</p-dialog>
+
+<!-- Недоплата: подтверждение выселения с записью в «Долги» -->
+<p-dialog
+  [(visible)]="debtOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="false"
+  [showHeader]="false"
+  [dismissableMask]="!busy()"
+  [style]="{ width: '440px', maxWidth: 'calc(100vw - 32px)' }"
+  [role]="'alertdialog'"
+>
+  <div class="flex flex-col gap-4 pt-6">
+    <div class="flex flex-col items-center gap-3 text-center">
+      <div class="flex size-14 items-center justify-center rounded-full bg-[#FEF0C7] text-[#B54708]">
+        <app-icon name="receipt" [size]="26" />
+      </div>
+      <h2 class="m-0 text-lg font-semibold">{{ 'rooms.debt.title' | transloco }}</h2>
+      <p class="m-0 text-sm leading-normal text-muted">
+        {{ 'rooms.debt.text' | transloco: { name: debtor(), sum: (debt() | sum) } }}
+      </p>
+    </div>
+    <dl class="m-0 flex flex-col overflow-hidden rounded-xl border border-line text-sm">
+      <div class="flex justify-between px-3.5 py-2">
+        <dt class="text-muted">{{ 'rooms.checkoutToPay' | transloco }}</dt>
+        <dd class="m-0 tabular-nums">{{ checkoutAmount() | sum }} {{ 'common.currency' | transloco }}</dd>
+      </div>
+      <div class="flex justify-between border-t border-line px-3.5 py-2">
+        <dt class="text-muted">{{ 'rooms.checkoutPrepayment' | transloco }}</dt>
+        <dd class="m-0 tabular-nums">{{ prepayment() | sum }} {{ 'common.currency' | transloco }}</dd>
+      </div>
+      <div class="flex justify-between border-t border-line px-3.5 py-2">
+        <dt class="text-muted">{{ 'rooms.checkoutAmount' | transloco }}</dt>
+        <dd class="m-0 tabular-nums">{{ paid() | sum }} {{ 'common.currency' | transloco }}</dd>
+      </div>
+      <div class="flex justify-between border-t border-line bg-[#FFFAEB] px-3.5 py-2.5">
+        <dt class="font-semibold text-[#B54708]">{{ 'rooms.debt.sum' | transloco }}</dt>
+        <dd class="m-0 font-bold tabular-nums text-[#B54708]">
+          {{ debt() | sum }} {{ 'common.currency' | transloco }}
+        </dd>
+      </div>
+    </dl>
+    <div class="field">
+      <label for="co-debt-reason" class="field-label"
+        >{{ 'rooms.debt.reason' | transloco }} <span class="req">*</span></label
+      >
+      <textarea
+        id="co-debt-reason"
+        pTextarea
+        rows="3"
+        class="w-full resize-none"
+        [placeholder]="'rooms.debt.reasonPlaceholder' | transloco"
+        [ngModel]="debtReason()"
+        (ngModelChange)="debtReason.set($event)"
+        [invalid]="debtReasonInvalid()"
+        [attr.aria-invalid]="debtReasonInvalid()"
+      ></textarea>
+    </div>
+    <div class="flex gap-2.5">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        class="flex-1"
+        [disabled]="busy()"
+        (click)="debtOpen.set(false)"
+      >
+        <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
+      </button>
+      <button pButton type="button" severity="danger" class="flex-1" [loading]="busy()" (click)="confirmDebt()">
+        @if (!busy()) {
+          <app-icon name="checkout" />
+        }
+        <span pButtonLabel>{{ 'rooms.checkout' | transloco }}</span>
+      </button>
+    </div>
+  </div>
 </p-dialog>
 
 <!-- Сформированный при выселении чек: просмотр, скачать, печать -->

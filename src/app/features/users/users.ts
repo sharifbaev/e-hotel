@@ -1,6 +1,6 @@
 import { Component, computed, inject, linkedSignal, signal, viewChild } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormsModule, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ColDef } from 'ag-grid-community';
 import { ButtonModule } from 'primeng/button';
@@ -13,10 +13,13 @@ import { ApiError } from '../../core/api/mock-api';
 import { AuthService } from '../../core/auth/auth.service';
 import { UsersService } from '../../core/data/users.service';
 import { LanguageService } from '../../core/i18n/language.service';
+import { BreakpointService } from '../../core/layout/breakpoint.service';
+import { TablePager } from '../../shared/grid/table-pager';
+import { Sheet } from '../../shared/ui/sheet/sheet';
 import { RolesService } from '../../core/data/roles.service';
 import { APP_SECTIONS, AccessLevel, RoleCode, StaffUser, StaffUserDraft } from '../../core/models';
 import { NotifyService } from '../../core/notify/notify.service';
-import { formatDateTime } from '../../shared/format/format';
+import { formatDateTime, initials } from '../../shared/format/format';
 import { avatarCell, dotCell, pillCell } from '../../shared/grid/cells';
 import { DataGrid } from '../../shared/grid/data-grid';
 import { dateFilter } from '../../shared/grid/grid-filters';
@@ -34,6 +37,9 @@ const ACCESS_STYLE: Record<AccessLevel, { icon: IconName; bg: string; fg: string
 @Component({
   selector: 'app-users',
   imports: [
+    FormsModule,
+    TablePager,
+    Sheet,
     ReactiveFormsModule,
     TranslocoPipe,
     ButtonModule,
@@ -55,6 +61,7 @@ export class UsersPage {
   private readonly transloco = inject(TranslocoService);
   private readonly lang = inject(LanguageService);
   private readonly fb = inject(NonNullableFormBuilder);
+  protected readonly bp = inject(BreakpointService);
 
   private readonly grid = viewChild<DataGrid<StaffUser>>(DataGrid);
 
@@ -187,6 +194,66 @@ export class UsersPage {
 
   protected select(u: StaffUser | null): void {
     this.selected.set(u);
+  }
+
+  // ===== Мобильная версия: карточки + пагинация, действия — в шторке =====
+  protected readonly search = signal('');
+  protected readonly pageSize = signal(10);
+  protected readonly filtered = computed(() => {
+    const q = this.search().trim().toLowerCase();
+    return this.users().filter(
+      (u) =>
+        !q ||
+        u.name.toLowerCase().includes(q) ||
+        u.login.toLowerCase().includes(q) ||
+        u.phone.includes(q),
+    );
+  });
+  /** Страница сбрасывается на первую при поиске и смене размера. */
+  protected readonly page = linkedSignal({
+    source: () => [this.search(), this.pageSize()] as const,
+    computation: () => 0,
+  });
+  protected readonly pageCount = computed(() =>
+    Math.max(1, Math.ceil(this.filtered().length / this.pageSize())),
+  );
+  protected readonly pageRows = computed(() => {
+    const size = this.pageSize();
+    const page = Math.min(this.page(), this.pageCount() - 1);
+    return this.filtered().slice(page * size, page * size + size);
+  });
+  protected readonly sheetOpen = signal(false);
+
+  protected goPage(p: number): void {
+    this.page.set(Math.max(0, Math.min(p, this.pageCount() - 1)));
+  }
+
+  protected openCard(u: StaffUser): void {
+    this.selected.set(u);
+    this.sheetOpen.set(true);
+  }
+
+  /** Действие из шторки: закрыть её и выполнить. */
+  protected fromSheet(action: () => void): void {
+    this.sheetOpen.set(false);
+    action();
+  }
+
+  protected userInitials(u: StaffUser): string {
+    return initials(u.name);
+  }
+
+  protected tone(u: StaffUser): { bg: string; fg: string } {
+    return u.active ? roleTone(u.role) : { bg: '#F2F4F7', fg: '#667085' };
+  }
+
+  /** «сейчас в сети» / дата последнего входа / «ещё не входил». */
+  protected lastLogin(u: StaffUser): string {
+    return u.online
+      ? this.transloco.translate('users.online')
+      : u.lastLogin
+        ? formatDateTime(u.lastLogin)
+        : this.transloco.translate('users.neverLoggedIn');
   }
 
   protected invalid(name: 'name' | 'login' | 'password'): boolean {

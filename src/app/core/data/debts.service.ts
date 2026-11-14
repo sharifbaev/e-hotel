@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { API_URL, localDateTime } from '../api/api';
-import { Expense, ExpenseDraft } from '../models';
+import { Expense, ExpenseDraft, PrepaymentDraft } from '../models';
 
 const norm = (e: Expense): Expense => ({
   ...e,
@@ -36,6 +36,16 @@ export class DebtsService {
 
   update(id: number, draft: ExpenseDraft): Observable<Expense> {
     return this.http.put<Expense>(`${this.api}/debts/${id}`, body(draft)).pipe(map(norm));
+  }
+
+  /**
+   * «Оплатить» долг: сумма ≤ долга. Полная оплата — сервер удаляет долг (debt: null),
+   * частичная — возвращает долг с остатком. Запись в журнал делает сервер.
+   */
+  pay(id: number, draft: PrepaymentDraft): Observable<Expense | null> {
+    return this.http
+      .post<{ debt: Expense | null }>(`${this.api}/debts/${id}/payments`, draft)
+      .pipe(map((r) => (r.debt ? norm(r.debt) : null)));
   }
 
   remove(id: number): Observable<void> {

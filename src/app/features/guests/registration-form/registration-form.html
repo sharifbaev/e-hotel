@@ -359,8 +359,57 @@
         </div>
         <span [id]="uid + 's-sum-hint'" class="hint">{{ 'guests.reg.amountHint' | transloco }}</span>
       </div>
-      @if (!compact() || extraOpen()) {
-        <div class="field">
+      <!-- Предоплата: галочка рядом со стоимостью; отмечена — сумма предоплаты и способ оплаты.
+           На мобильном (2 колонки) галочка — на всю ширину, чтобы текст не обрезался. -->
+      <div class="field" [class.col-span-2]="compact()">
+        <span class="field-label" aria-hidden="true">{{ 'guests.reg.prepaid' | transloco }}</span>
+        <label
+          [attr.for]="uid + 's-prepaid'"
+          class="qr-option min-h-10 !items-center !px-3 !py-2"
+          [class.qr-option-on]="form.controls.prepaid.value"
+        >
+          <p-checkbox
+            [inputId]="uid + 's-prepaid'"
+            formControlName="prepaid"
+            [binary]="true"
+            (onChange)="setPrepaid($event.checked)"
+          />
+          <span class="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <span class="truncate text-sm font-semibold text-ink">{{
+              'guests.reg.prepaidHint' | transloco
+            }}</span>
+            <app-icon
+              name="receipt"
+              [size]="18"
+              [class.text-accent]="form.controls.prepaid.value"
+              [class.text-faint]="!form.controls.prepaid.value"
+            />
+          </span>
+        </label>
+      </div>
+      @if (form.controls.prepaid.value) {
+        <div class="rise field justify-end">
+          <label [attr.for]="uid + 's-pre'" class="field-label"
+            >{{ 'guests.reg.prepayment' | transloco }} <span class="req">*</span></label
+          >
+          <div class="relative">
+            <input
+              [id]="uid + 's-pre'"
+              pInputText
+              appSum
+              formControlName="prepayment"
+              placeholder="0"
+              class="w-full pr-12"
+              [invalid]="prepaymentInvalid()"
+              [attr.aria-invalid]="prepaymentInvalid()"
+            />
+            <span
+              class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-[13px] text-muted"
+              >{{ 'common.currency' | transloco }}</span
+            >
+          </div>
+        </div>
+        <div class="rise field justify-end">
           <label [attr.for]="uid + 's-pay'" class="field-label">{{ 'guests.reg.payment' | transloco }}</label>
           <p-select
             [inputId]="uid + 's-pay'"

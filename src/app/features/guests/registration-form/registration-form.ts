@@ -35,6 +35,9 @@ import { PayLabelPipe } from '../../../shared/format/pay-label.pipe';
 import { PaymentTypesService } from '../../../core/data/payment-types.service';
 import { Icon } from '../../../shared/ui/icon/icon';
 
+/** Код «Не оплачено» в справочнике способов оплаты. */
+const UNPAID = 'unpaid';
+
 /** Счётчик экземпляров: уникальные id полей, когда на экране несколько форм (табы гостей). */
 let formSeq = 0;
 
@@ -112,12 +115,12 @@ export class RegistrationForm {
   protected readonly docTypes: DocType[] = ['bio_passport', 'id_card', 'foreign_passport'];
   protected readonly sexes: Sex[] = ['male', 'female'];
   protected readonly purposes: VisitPurpose[] = ['tourism', 'business', 'private'];
-  /** Типы оплаты из справочника «Настройки → Справочники → Типы оплаты». */
+  /** Способ оплаты предоплаты — справочник «Способ оплаты» без «Смешанный» и «Не оплачено». */
   protected readonly payments = computed<PaymentMethod[]>(() =>
     this.payTypes
       .items()
       .map((t) => t.code)
-      .filter((c) => c !== MIXED_PAYMENT),
+      .filter((c) => c !== MIXED_PAYMENT && c !== UNPAID),
   );
   protected readonly visas: VisaType[] = ['visa_free', 'tourist', 'business'];
 
@@ -157,7 +160,10 @@ export class RegistrationForm {
     checkin: this.fb.control<Date | null>(null),
     purpose: this.fb.control<VisitPurpose>('tourism'),
     amount: this.fb.control<number | null>(null, Validators.required),
-    payment: this.fb.control<PaymentMethod>('unpaid'),
+    // Галочка «Предоплата»: сумма предоплаты и способ оплаты показываются только с ней.
+    prepaid: [false],
+    prepayment: this.fb.control<number | null>(null),
+    payment: this.fb.control<PaymentMethod>(UNPAID),
     // «Сохранить фискальный чек» — чек формируется при заселении и хранится у гостя.
     // E-mehmon оформляется не в форме регистрации.
     fiscalReceipt: [false],
@@ -201,6 +207,25 @@ export class RegistrationForm {
 
   protected invalid(name: RequiredField): boolean {
     return this.tried() && this.form.controls[name].invalid;
+  }
+
+  /** Предоплата отмечена, а сумма не указана. */
+  protected prepaymentInvalid(): boolean {
+    const v = this.form.controls;
+    return this.tried() && v.prepaid.value && !((v.prepayment.value ?? 0) > 0);
+  }
+
+  /** Галочка «Предоплата»: включили — способ по умолчанию первый из справочника; сняли — сброс. */
+  protected setPrepaid(on: boolean): void {
+    const c = this.form.controls;
+    if (on) {
+      if (c.payment.value === UNPAID || !c.payment.value) {
+        c.payment.setValue(this.payments()[0] ?? 'cash');
+      }
+    } else {
+      c.prepayment.setValue(null);
+      c.payment.setValue(UNPAID);
+    }
   }
 
   protected setForeign(foreign: boolean): void {
@@ -273,7 +298,11 @@ export class RegistrationForm {
         params: { fields: missing.length },
       };
     }
+    if (this.prepaymentInvalid()) {
+      return { ok: false, title: 'guests.reg.requiredTitle', text: 'guests.reg.prepaymentRequired' };
+    }
     const v = this.form.getRawValue();
+    const prepaid = v.prepaid && (v.prepayment ?? 0) > 0;
     const data: GuestRegistration = {
       docType: v.docType,
       doc: v.doc.trim(),
@@ -300,7 +329,8 @@ export class RegistrationForm {
       checkout: null,
       purpose: v.purpose,
       amount: v.amount ?? 0,
-      payment: v.payment,
+      prepayment: prepaid ? (v.prepayment ?? 0) : 0,
+      payment: prepaid ? v.payment : UNPAID,
       fiscalReceipt: v.fiscalReceipt,
       sendEmehmon: this.foreign() && v.sendEmehmon,
     };
@@ -392,6 +422,8 @@ export class RegistrationForm {
       checkin: isoToLocalDate(r.checkin),
       purpose: r.purpose,
       amount: r.amount,
+      prepaid: (r.prepayment ?? 0) > 0,
+      prepayment: (r.prepayment ?? 0) > 0 ? r.prepayment : null,
       payment: r.payment,
       fiscalReceipt: r.fiscalReceipt,
       sendEmehmon: r.sendEmehmon,

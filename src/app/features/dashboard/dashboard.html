@@ -60,11 +60,16 @@
     </div>
 
     <!-- KPI -->
-    <div class="grid grid-cols-6 gap-3 max-[1400px]:grid-cols-3 max-lg:grid-cols-2">
+    <div class="grid grid-cols-7 gap-3 max-[1500px]:grid-cols-4 max-lg:grid-cols-2">
       @for (k of kpis(); track k.label) {
         <a
-          [routerLink]="k.link"
-          class="card-h flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-3.5 text-ink no-underline hover:text-ink"
+          [routerLink]="k.action ? null : k.link"
+          [queryParams]="k.query"
+          [attr.role]="k.action ? 'button' : null"
+          [attr.tabindex]="k.action ? 0 : null"
+          (click)="openKpi(k, $event)"
+          (keydown.enter)="openKpi(k, $event)"
+          class="card-h cursor-pointer flex flex-col gap-1.5 rounded-xl border border-line bg-white px-4 py-3.5 text-ink no-underline hover:text-ink"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="text-[13px] font-medium text-muted">{{ k.label | transloco }}</span>
@@ -335,10 +340,10 @@
           }}</label>
           <p-datepicker
             inputId="md-from"
+            appendTo="body"
             [ngModel]="periodFrom()"
             (ngModelChange)="periodFrom.set($event)"
             dateFormat="dd.mm.yy"
-            [touchUI]="true"
             [fluid]="true"
           />
         </div>
@@ -348,10 +353,10 @@
           }}</label>
           <p-datepicker
             inputId="md-to"
+            appendTo="body"
             [ngModel]="periodTo()"
             (ngModelChange)="periodTo.set($event)"
             dateFormat="dd.mm.yy"
-            [touchUI]="true"
             [fluid]="true"
           />
         </div>
@@ -361,7 +366,12 @@
     <div class="grid grid-cols-2 gap-2.5">
       @for (k of mobileKpis(); track k.label) {
         <a
-          [routerLink]="k.link"
+          [routerLink]="k.action ? null : k.link"
+          [queryParams]="k.query"
+          [attr.role]="k.action ? 'button' : null"
+          [attr.tabindex]="k.action ? 0 : null"
+          (click)="openKpi(k, $event)"
+          (keydown.enter)="openKpi(k, $event)"
           class="tap flex flex-col gap-1 rounded-[14px] border border-line-2 bg-white px-3.5 py-3 text-ink no-underline"
           [class.col-span-2]="k.wide"
         >
@@ -462,3 +472,85 @@
     </section>
   </div>
 }
+
+<!-- Прибыль: откуда доход за период -->
+<p-dialog
+  [(visible)]="incomeOpen"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [header]="'dashboard.income.title' | transloco"
+  [style]="{ width: '480px', maxWidth: 'calc(100vw - 32px)' }"
+  styleClass="hs-dialog"
+  [closeAriaLabel]="'common.close' | transloco"
+>
+  <div class="flex flex-col gap-4">
+    <p class="m-0 text-[13px] text-muted">
+      {{ 'dashboard.income.period' | transloco: { from: (range().from | dayMonth), to: (range().to | dayMonth) } }}
+    </p>
+
+    <!-- Доля каждого источника -->
+    <div class="flex h-2.5 overflow-hidden rounded-full bg-chip" aria-hidden="true">
+      @for (r of incomeRows(); track r.key) {
+        @if (r.pct > 0) {
+          <span class="h-full" [style.width.%]="r.pct" [style.background]="r.color"></span>
+        }
+      }
+    </div>
+
+    <ul class="m-0 flex list-none flex-col gap-2 p-0">
+      @for (r of incomeRows(); track r.key) {
+        <li class="flex items-center gap-3 rounded-xl border border-line px-3.5 py-3">
+          <span class="size-2.5 shrink-0 rounded-full" [style.background]="r.color" aria-hidden="true"></span>
+          <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span class="text-sm font-semibold text-ink">{{ 'dashboard.income.' + r.key | transloco }}</span>
+            <span class="text-xs text-muted">{{ 'dashboard.income.' + r.hint | transloco }}</span>
+          </span>
+          <span class="flex shrink-0 flex-col items-end gap-0.5">
+            @if (r.value === null) {
+              <span class="text-sm text-muted">—</span>
+            } @else {
+              <span class="text-sm font-semibold tabular-nums"
+                >{{ r.value | sum }} {{ 'common.currency' | transloco }}</span
+              >
+              <span class="text-xs text-muted tabular-nums">{{ r.pct }}%</span>
+            }
+          </span>
+        </li>
+      }
+    </ul>
+
+    @if (!totals().income) {
+      <p class="m-0 rounded-xl bg-[#FFFAEB] px-3.5 py-2.5 text-xs text-[#B54708]">
+        {{ 'dashboard.income.noBreakdown' | transloco }}
+      </p>
+    }
+
+    <dl class="m-0 flex flex-col overflow-hidden rounded-xl border border-line text-sm">
+      <div class="flex justify-between px-3.5 py-2.5">
+        <dt class="text-muted">{{ 'dashboard.income.total' | transloco }}</dt>
+        <dd class="m-0 font-semibold tabular-nums">
+          {{ totals().revenue | sum }} {{ 'common.currency' | transloco }}
+        </dd>
+      </div>
+      <div class="flex justify-between border-t border-line px-3.5 py-2.5">
+        <dt class="text-muted">{{ 'dashboard.income.expenses' | transloco }}</dt>
+        <dd class="m-0 font-semibold tabular-nums text-danger">
+          {{ totals().expenses > 0 ? '− ' : '' }}{{ totals().expenses | sum }}
+          {{ 'common.currency' | transloco }}
+        </dd>
+      </div>
+      <div class="flex justify-between border-t border-line bg-accent-tint px-3.5 py-3">
+        <dt class="font-semibold text-ink">{{ 'dashboard.income.profit' | transloco }}</dt>
+        <dd
+          class="m-0 text-base font-bold tabular-nums"
+          [class.text-danger]="totals().revenue - totals().expenses < 0"
+        >
+          {{ totals().revenue - totals().expenses < 0 ? '− ' : ''
+          }}{{ totals().revenue - totals().expenses < 0 ? (totals().expenses - totals().revenue | sum) : (totals().revenue - totals().expenses | sum) }}
+          {{ 'common.currency' | transloco }}
+        </dd>
+      </div>
+    </dl>
+  </div>
+</p-dialog>

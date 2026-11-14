@@ -18,7 +18,9 @@ import { Tab, TabList, TabPanel, TabPanels, Tabs } from 'primeng/tabs';
 import { map, startWith } from 'rxjs';
 import { ApiError } from '../../core/api/mock-api';
 import { SettingsService } from '../../core/data/settings.service';
+import { PaymentTypesService } from '../../core/data/payment-types.service';
 import { LanguageService } from '../../core/i18n/language.service';
+import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { ActionLogEntry, HotelSettings, Lang, RoomCategory } from '../../core/models';
 import { NotifyService } from '../../core/notify/notify.service';
 import { formatDateTime, formatSum } from '../../shared/format/format';
@@ -37,6 +39,9 @@ import { PaymentTypesSection } from './payment-types-section';
 type SettingsView = 'settings' | 'references' | 'log';
 type RefTab = 'categories' | 'roles' | 'serviceTypes' | 'paymentTypes';
 const REF_TABS: RefTab[] = ['categories', 'roles', 'serviceTypes', 'paymentTypes'];
+
+/** Параметры оплаты в записях журнала по гостю (порядок вывода). */
+const LOG_DETAILS = ['price', 'sum', 'prepayment', 'toPay', 'paid', 'debt', 'rest', 'payment'] as const;
 
 type LogTone = { glyph: string; bg: string; fg: string };
 
@@ -111,6 +116,8 @@ export class SettingsPage {
   private readonly fb = inject(NonNullableFormBuilder);
   private readonly transloco = inject(TranslocoService);
   private readonly lang = inject(LanguageService);
+  private readonly payTypes = inject(PaymentTypesService);
+  protected readonly bp = inject(BreakpointService);
 
   /** Маршрут без data.view (/settings) передаёт undefined — это экран «Настройки». */
   readonly view = input<SettingsView, SettingsView | undefined>('settings', {
@@ -134,7 +141,7 @@ export class SettingsPage {
     address: [''],
     checkinTime: this.fb.control<Date | null>(null),
     checkoutTime: this.fb.control<Date | null>(null),
-    defaultLang: this.fb.control<Lang>('ru'),
+    defaultLang: this.fb.control<Lang>('uz-Latn'),
     currency: [{ value: 'UZS', disabled: true }],
   });
   private initialHotel: HotelSettings | null = null;
@@ -189,6 +196,10 @@ export class SettingsPage {
       // Код, которого фронт ещё не знает: «room.archive: 206».
       text = [l.action, l.params['target']].filter(Boolean).join(': ');
     }
+    const details = this.logDetails(l);
+    if (details) {
+      text += ` — ${details}`;
+    }
     if (l.changes?.length) {
       const fields = l.changes
         .map((f) => {
@@ -200,6 +211,24 @@ export class SettingsPage {
       text += ` (${this.transloco.translate('settings.log.fields', { fields })})`;
     }
     return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  /**
+   * Оплата в действиях с гостем (заселение, предоплата, выселение) и оплате долга:
+   * «за день 300 000 сум, предоплата 100 000 сум, к оплате 800 000 сум, способ: Наличные».
+   */
+  private logDetails(l: ActionLogEntry): string {
+    if (!l.action.startsWith('guest.') && !l.action.startsWith('debt.pa')) {
+      return '';
+    }
+    const money = (v: string) => (isNaN(Number(v)) ? v : formatSum(Number(v)));
+    return LOG_DETAILS.filter((k) => l.params[k] !== undefined && l.params[k] !== '')
+      .map((k) =>
+        this.transloco.translate(`settings.log.detail.${k}`, {
+          v: k === 'payment' ? this.payTypes.label(l.params[k]) : money(l.params[k]),
+        }),
+      )
+      .join(', ');
   }
 
   /** Раздел действия: «Номера», «Гости»… (для старых кодов — по смыслу). */
@@ -224,7 +253,31 @@ export class SettingsPage {
 
   protected readonly logColumns = computed<ColDef<ActionLogEntry>[]>(() => {
     this.lang.current();
+    this.payTypes.items();
     const t = (k: string) => this.transloco.translate(k);
+    if (this.bp.isMobile()) {
+      // Телефон: одна колонка — действие целиком (с переносом), под ним сотрудник и время.
+      return [
+        {
+          colId: 'action',
+          headerName: t('settings.log.col.action'),
+          flex: 1,
+          minWidth: 0,
+          sort: 'desc',
+          valueGetter: (p) => (p.data ? this.logText(p.data) : ''),
+          comparator: (_a, _b, na, nb) => (na.data?.at ?? '').localeCompare(nb.data?.at ?? ''),
+          autoHeight: true,
+          cellRenderer: (p: { value: string; data?: ActionLogEntry }) =>
+            p.data
+              ? logActionCell(
+                  logTone(p.data.action),
+                  p.value,
+                  `${p.data.who} · ${formatDateTime(p.data.at)}`,
+                )
+              : '',
+        },
+      ];
+    }
     return [
       {
         field: 'who',
@@ -265,6 +318,10 @@ export class SettingsPage {
 
   /** Форма отеля нужна только на экране «Настройки» (входы маршрута уже привязаны). */
   ngOnInit(): void {
+    if (this.view() === 'log') {
+      // Названия способов оплаты в записях журнала по гостю.
+      this.payTypes.ensureLoaded();
+    }
     if (this.view() === 'settings') {
       this.loadHotel();
     }
@@ -431,17 +488,35 @@ export class SettingsPage {
 }
 
 /** Ячейка «Действие»: цветной значок события + текст (DOM, без innerHTML). */
-function logActionCell(tone: { glyph: string; bg: string; fg: string }, text: string): HTMLElement {
+function logActionCell(
+  tone: { glyph: string; bg: string; fg: string },
+  text: string,
+  /** Мобильный вид: вторая строка (сотрудник · время), текст действия переносится. */
+  sub?: string,
+): HTMLElement {
   const wrap = document.createElement('span');
-  wrap.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:0';
+  wrap.style.cssText = sub
+    ? 'display:flex;align-items:flex-start;gap:10px;min-width:0;padding:8px 0;line-height:1.35'
+    : 'display:flex;align-items:center;gap:10px;min-width:0';
   const icon = document.createElement('span');
   icon.setAttribute('aria-hidden', 'true');
   icon.textContent = tone.glyph;
   icon.style.cssText = `width:28px;height:28px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${tone.bg};color:${tone.fg}`;
   const label = document.createElement('span');
   label.textContent = text;
-  label.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-  wrap.append(icon, label);
+  if (!sub) {
+    label.style.cssText = 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    wrap.append(icon, label);
+    return wrap;
+  }
+  label.style.cssText = 'white-space:normal;word-break:break-word;color:var(--color-ink)';
+  const meta = document.createElement('span');
+  meta.textContent = sub;
+  meta.style.cssText = 'display:block;font-size:12px;color:var(--color-muted);margin-top:2px';
+  const body = document.createElement('span');
+  body.style.cssText = 'display:flex;flex-direction:column;min-width:0';
+  body.append(label, meta);
+  wrap.append(icon, body);
   return wrap;
 }
 

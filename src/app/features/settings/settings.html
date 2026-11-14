@@ -16,7 +16,8 @@
           <h1 class="m-0 pb-2 text-2xl font-bold tracking-[-0.01em] max-md:text-xl">
             {{ 'references.title' | transloco }}
           </h1>
-          <p-tablist class="min-w-0 flex-1">
+          <!-- На телефоне вкладки — отдельной строкой на всю ширину (прокрутка пальцем) -->
+          <p-tablist class="min-w-0 flex-1 max-md:basis-full">
             <p-tab value="categories">{{ 'references.tabs.categories' | transloco }}</p-tab>
             <p-tab value="roles">{{ 'references.tabs.roles' | transloco }}</p-tab>
             <p-tab value="serviceTypes">{{ 'references.tabs.serviceTypes' | transloco }}</p-tab>
@@ -176,7 +177,7 @@
               [loading]="logLoading()"
               [getRowId]="logRowId"
               noMatchText="settings.log.empty"
-              [minWidth]="760"
+              [minWidth]="bp.isMobile() ? 0 : 760"
             />
           </div>
         </section>
