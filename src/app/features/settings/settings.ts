@@ -26,6 +26,7 @@ import { NotifyService } from '../../core/notify/notify.service';
 import { formatDateTime, formatSum } from '../../shared/format/format';
 import { SumPipe } from '../../shared/format/format.pipes';
 import { SumInputDirective } from '../../shared/forms/sum-input.directive';
+import { PhoneInputDirective } from '../../shared/forms/phone-input.directive';
 import { avatarCell } from '../../shared/grid/cells';
 import { DataGrid } from '../../shared/grid/data-grid';
 import { dateFilter, staffFilter } from '../../shared/grid/grid-filters';
@@ -79,12 +80,16 @@ const LOG_TONE: Record<string, LogTone> = {
   password: TONE.auth,
 };
 
+/** Префикс автора действий супер-админа в журнале (v1.6). */
+const PLATFORM_PREFIX = 'platform:';
+
 const logTone = (action: string): LogTone =>
   LOG_TONE[action] ?? LOG_TONE[action.split('.').pop() ?? ''] ?? TONE.edit;
 
 @Component({
   selector: 'app-settings',
   imports: [
+    PhoneInputDirective,
     FormsModule,
     ReactiveFormsModule,
     TranslocoPipe,
@@ -284,7 +289,16 @@ export class SettingsPage {
         headerName: t('settings.log.col.who'),
         flex: 1.3,
         minWidth: 200,
-        cellRenderer: (p: { value: string }) => avatarCell(p.value, { size: 28 }),
+        // v1.6: действие супер-админа — who = «platform: <имя>», показываем с пометкой.
+        cellRenderer: (p: { value: string }) =>
+          p.value?.startsWith(PLATFORM_PREFIX)
+            ? avatarCell(p.value.slice(PLATFORM_PREFIX.length).trim(), {
+                size: 28,
+                bg: '#101828',
+                fg: '#fff',
+                sub: t('settings.log.platform'),
+              })
+            : avatarCell(p.value, { size: 28 }),
         ...staffFilter<ActionLogEntry>(() => this.api.logAuthors()),
       },
       {
@@ -308,7 +322,7 @@ export class SettingsPage {
         field: 'at',
         headerName: t('settings.log.col.at'),
         flex: 1.1,
-        minWidth: 170,
+        minWidth: 180,
         sort: 'desc',
         valueFormatter: (p) => formatDateTime(p.value),
         ...dateFilter<ActionLogEntry>(),

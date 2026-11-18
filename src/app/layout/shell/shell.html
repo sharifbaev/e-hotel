@@ -24,9 +24,11 @@
         @if (!collapsed()) {
           <div class="flex min-w-0 flex-col">
             <span class="text-base font-bold">HotelOS</span>
-            <span class="truncate text-xs text-muted">
-              {{ auth.user()?.hotelName }}, {{ auth.user()?.hotelCity }}
-            </span>
+            @if (auth.user()?.hotelName) {
+              <span class="truncate text-xs text-muted">
+                {{ auth.user()?.hotelName }}, {{ auth.user()?.hotelCity }}
+              </span>
+            }
           </div>
         }
       </div>
@@ -124,6 +126,23 @@
         >
           <app-icon name="sidebar" [size]="20" [stroke]="1.8" />
         </button>
+        <app-hotel-switcher />
+        @if (auth.isPlatformAdmin()) {
+          <!-- v1.6: супер-админ работает в отеле с правами владельца -->
+          <span class="flex items-center gap-2 rounded-lg bg-ink px-3 py-1.5 text-sm text-white">
+            <app-icon name="shield" [size]="16" [stroke]="1.8" />
+            <span class="max-w-64 truncate"
+              >{{ 'platform.inHotel' | transloco: { hotel: auth.user()?.hotelName ?? '' } }}</span
+            >
+            <button
+              type="button"
+              class="ml-1 cursor-pointer rounded-md border border-white/30 bg-transparent px-2 py-0.5 text-xs font-semibold text-white hover:bg-white/10"
+              (click)="backToPlatform()"
+            >
+              {{ 'platform.back' | transloco }}
+            </button>
+          </span>
+        }
         <div class="ml-auto flex items-center gap-2">
           <app-lang-switch />
           <button
@@ -141,6 +160,16 @@
               <span class="text-xs text-muted">{{ 'shell.noNotificationsHint' | transloco }}</span>
             </div>
           </p-popover>
+          <button
+            type="button"
+            class="icon-btn"
+            [attr.aria-label]="'password.menu' | transloco"
+            [pTooltip]="'password.menu' | transloco"
+            tooltipPosition="bottom"
+            (click)="auth.passwordDialog.set(true)"
+          >
+            <app-icon name="key" [size]="20" [stroke]="1.8" />
+          </button>
           <button type="button" class="logout-btn" (click)="logout()">
             <app-icon name="logout" />
             {{ 'shell.logout' | transloco }}
@@ -149,17 +178,38 @@
       </header>
 
       <main id="main" tabindex="-1" class="flex min-w-0 flex-1 flex-col outline-none">
-        <router-outlet />
+        @if (auth.hotelReady()) {
+          <router-outlet />
+        }
       </main>
     </div>
   </div>
 } @else {
   <!-- Мобильная версия -->
   <div class="flex h-dvh flex-col">
+    @if (auth.isPlatformAdmin()) {
+      <div class="flex shrink-0 justify-center bg-ink px-3 py-1.5">
+        <span class="flex items-center gap-2  text-sm text-white">
+            <app-icon name="shield" [size]="16" [stroke]="1.8" />
+            <span class="max-w-64 truncate"
+              >{{ 'platform.inHotel' | transloco: { hotel: auth.user()?.hotelName ?? '' } }}</span
+            >
+            <button
+              type="button"
+              class="ml-1 cursor-pointer rounded-md border border-white/30 bg-transparent px-2 py-0.5 text-xs font-semibold text-white hover:bg-white/10"
+              (click)="backToPlatform()"
+            >
+              {{ 'platform.back' | transloco }}
+            </button>
+          </span>
+      </div>
+    }
     <!-- overflow-y-auto: страницы без своей прокрутки (настройки, журнал, пользователи)
          прокручиваются здесь и не залезают под нижнее меню -->
     <main id="main" tabindex="-1" class="flex min-h-0 flex-1 flex-col overflow-y-auto outline-none">
-      <router-outlet />
+      @if (auth.hotelReady()) {
+        <router-outlet />
+      }
     </main>
     <nav
       [attr.aria-label]="'nav.main' | transloco"
@@ -186,5 +236,7 @@
   </div>
 }
 
-<!-- Пароль сброшен администратором — сначала задать новый. -->
+<!-- Выбор отеля: несколько отелей и ни один не выбран (v1.6). -->
+<app-hotel-picker />
+<!-- Смена своего пароля (кнопка с ключом в шапке / «Ещё»). -->
 <app-change-password-dialog />

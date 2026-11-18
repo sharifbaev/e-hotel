@@ -140,6 +140,13 @@ type QrState = 'loading' | 'offline' | 'none' | 'noLan' | 'ready';
             <a [href]="url()" target="_blank" rel="noopener" class="text-[13px] font-medium">
               {{ 'qr.openGuest' | transloco }}
             </a>
+            <!-- v1.6: в ссылке есть id отеля — старые наклейки больше не работают -->
+            <p
+              class="m-0 flex items-start gap-2 rounded-lg bg-[#FEF6E7] px-3 py-2 text-xs leading-normal text-[#7A3A0A]"
+            >
+              <app-icon name="alert" [size]="16" class="shrink-0" />
+              {{ 'qr.reprintHint' | transloco }}
+            </p>
           </div>
         }
       }

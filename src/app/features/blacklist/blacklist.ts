@@ -53,7 +53,7 @@ export class BlacklistPage {
         valueGetter: (p) => (p.data ? `${fullName(p.data)} ${p.data.middleName}`.trim() : ''),
         cellRenderer: (p: { value: string }) => avatarCell(p.value, { bg: '#FEE4E2', fg: '#B42318' }),
       },
-      { field: 'doc', headerName: t('guests.col.doc'), flex: 1, cellClass: 'tabular-nums text-ink-2' },
+      { field: 'doc', headerName: t('guests.col.doc'), flex: 1, minWidth: 130, cellClass: 'tabular-nums text-ink-2' },
       {
         colId: 'country',
         headerName: t('guests.col.country'),
@@ -75,7 +75,7 @@ export class BlacklistPage {
         headerName: t('blacklist.col.added'),
         flex: 1.1,
         sort: 'desc',
-        minWidth: 170,
+        minWidth: 180,
         valueFormatter: (p) => formatDateTime(p.value),
         ...dateFilter<BlacklistEntry>(),
         cellClass: 'text-ink-2',

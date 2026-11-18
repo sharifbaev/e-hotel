@@ -4,13 +4,13 @@ import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_URL } from '../api/api';
 import { APP_SECTIONS, DEFAULT_ROLE_SECTIONS, Role, RoleDraft, SystemRoleCode } from '../models';
 
-/** Системные роли — пока сервер не отдаёт /roles, формы работают с ними. */
+/** Начальные роли — пока /roles не загружен. v1.6: системная (неизменяемая) — только owner. */
 const FALLBACK_ROLES: Role[] = (['owner', 'admin', 'accountant'] as SystemRoleCode[]).map(
   (code, i) => ({
     id: -(i + 1),
     code,
     name: code,
-    system: true,
+    system: code === 'owner',
     sections: [...DEFAULT_ROLE_SECTIONS[code]],
   }),
 );
@@ -28,7 +28,8 @@ const norm = (r: Role): Role => ({
 
 /**
  * Роли сотрудников (REST API /roles): список для селектов и CRUD в «Настройки → Справочники».
- * Системные роли owner / admin / accountant сервер создаёт сам, удалить их нельзя.
+ * v1.6: неизменяема только owner; admin и accountant владелец может изменить и удалить
+ * (409 roles.inUse — в роли есть сотрудники).
  */
 @Service()
 export class RolesService {

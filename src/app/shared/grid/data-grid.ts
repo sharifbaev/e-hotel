@@ -35,6 +35,18 @@ const MAX_VISIBLE_ROWS = 10;
 /** Минимальная высота таблицы (место под «Нет данных» / загрузку). */
 const MIN_H = 350;
 
+/** Минимальная ширина столбца по умолчанию (поле фильтра остаётся читаемым). */
+const DEFAULT_MIN_W = 120;
+
+/** Ширина, при которой подпись столбца (12px, 600) и иконка сортировки помещаются целиком. */
+function headerMinWidth(header: string | undefined): number {
+  if (!header) {
+    return 0;
+  }
+  // ~7.4px на символ + отступы ячейки (2×16) + иконка сортировки с зазором (~26)
+  return Math.ceil(header.length * 7.4 + 58);
+}
+
 /** Текст ячейки для окна «Подробнее»: видимый текст рендерера (без aria-hidden). */
 function visibleText(node: Node): string {
   const parts: string[] = [];
@@ -77,7 +89,7 @@ interface DetailRow {
             class="block h-full"
             [theme]="theme"
             [rowData]="rows()"
-            [columnDefs]="columns()"
+            [columnDefs]="gridColumns()"
             [defaultColDef]="defaultColDef()"
             [gridOptions]="gridOptions"
             [localeText]="localeText()"
@@ -183,6 +195,19 @@ interface DetailRow {
       display: flex;
       align-items: center;
     }
+    /* Длинный текст не наезжает на соседний столбец: обрезается многоточием
+       (полный текст — в «Подробнее» по двойному клику) */
+    :host ::ng-deep .ag-cell:not(.ag-cell-wrap-text) .ag-cell-wrapper {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+    }
+    :host ::ng-deep .ag-cell:not(.ag-cell-wrap-text) .ag-cell-value {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
     /* Перенос текста (autoHeight): обычный межстрочный интервал вместо высоты строки */
     :host ::ng-deep .ag-cell-wrap-text {
       line-height: 1.45;
@@ -229,9 +254,25 @@ export class DataGrid<T extends object> {
   readonly details = input(true);
   protected readonly detail = signal<DetailRow[] | null>(null);
 
+  /**
+   * Столбцы с минимальной шириной не меньше подписи + иконка сортировки + поле фильтра:
+   * на узких экранах (MacBook и т.п.) таблица прокручивается по горизонтали,
+   * а не сжимает столбцы так, что надписи наезжают друг на друга.
+   * minWidth: 0 у столбца — оставляется как есть.
+   */
+  protected readonly gridColumns = computed<ColDef<T>[]>(() =>
+    this.columns().map((col) => {
+      if (col.minWidth === 0) {
+        return col;
+      }
+      const need = headerMinWidth(col.headerName);
+      return need > (col.minWidth ?? DEFAULT_MIN_W) ? { ...col, minWidth: need } : col;
+    }),
+  );
+
   protected readonly defaultColDef = computed<ColDef<T>>(() => ({
     flex: 1,
-    minWidth: 90,
+    minWidth: DEFAULT_MIN_W,
     sortable: true,
     unSortIcon: true,
     filter: 'agTextColumnFilter',

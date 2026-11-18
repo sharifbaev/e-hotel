@@ -3,6 +3,7 @@ import { DestroyRef, Service, computed, inject, signal } from '@angular/core';
 import { Observable, Subscription, catchError, map, of, tap, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { API_URL, localDateTime } from '../api/api';
+import { hotelHeader } from './room-qr.service';
 import { CommentDraft, CommentStatus, GuestComment } from '../models';
 
 const norm = (c: GuestComment): GuestComment => ({
@@ -66,8 +67,11 @@ export class CommentsService {
   }
 
   /** Публичный: отправка со страницы гостя. */
-  create(draft: CommentDraft): Observable<GuestComment> {
-    return this.http.post<GuestComment>(this.base, draft).pipe(map(norm));
+  /** Комментарий гостя (публично). hotelId — из QR-ссылки, уходит в X-Hotel-Id (v1.6). */
+  create(draft: CommentDraft, hotelId?: number | null): Observable<GuestComment> {
+    return this.http
+      .post<GuestComment>(this.base, draft, { headers: hotelHeader(hotelId) })
+      .pipe(map(norm));
   }
 
   setStatus(id: number, status: CommentStatus): Observable<GuestComment> {

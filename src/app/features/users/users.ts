@@ -7,14 +7,25 @@ import { ButtonModule } from 'primeng/button';
 import { Checkbox } from 'primeng/checkbox';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
+import { MultiSelect } from 'primeng/multiselect';
 import { Select } from 'primeng/select';
 import { Observable } from 'rxjs';
 import { ApiError } from '../../core/api/mock-api';
 import { AuthService } from '../../core/auth/auth.service';
+import {
+  joinLogin,
+  loginName,
+  loginNameValidator,
+  loginPrefixOf,
+  orgLoginPrefix,
+} from '../../core/auth/login-prefix';
 import { UsersService } from '../../core/data/users.service';
 import { LanguageService } from '../../core/i18n/language.service';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { TablePager } from '../../shared/grid/table-pager';
+import { LoginPrefixInputDirective } from '../../shared/forms/login-prefix-input.directive';
+import { PhoneInputDirective } from '../../shared/forms/phone-input.directive';
+import { CopyButton } from '../../shared/ui/copy-button/copy-button';
 import { Sheet } from '../../shared/ui/sheet/sheet';
 import { RolesService } from '../../core/data/roles.service';
 import { APP_SECTIONS, AccessLevel, RoleCode, StaffUser, StaffUserDraft } from '../../core/models';
@@ -37,6 +48,9 @@ const ACCESS_STYLE: Record<AccessLevel, { icon: IconName; bg: string; fg: string
 @Component({
   selector: 'app-users',
   imports: [
+    LoginPrefixInputDirective,
+    CopyButton,
+    PhoneInputDirective,
     FormsModule,
     TablePager,
     Sheet,
@@ -46,6 +60,7 @@ const ACCESS_STYLE: Record<AccessLevel, { icon: IconName; bg: string; fg: string
     Checkbox,
     Dialog,
     InputText,
+    MultiSelect,
     Select,
     DataGrid,
     ConfirmDialog,
@@ -80,6 +95,27 @@ export class UsersPage {
   protected readonly selected = signal<StaffUser | null>(null);
   protected readonly saving = signal(false);
   protected readonly meId = computed(() => this.auth.user()?.id ?? -1);
+
+  // ----- v1.6: несколько отелей, аккаунт владельца -----
+  /** Отели редактора — варианты поля «Отели». */
+  protected readonly hotelOptions = computed(() => this.auth.hotels());
+  /** Поле «Отели» — только если у редактора 2+ отеля. */
+  protected readonly showHotels = computed(() => this.hotelOptions().length > 1);
+  /** Выбран аккаунт владельца: блокировать, удалять и сбрасывать пароль нельзя (403 users.owner). */
+  protected readonly selectedIsOwner = computed(() => this.selected()?.role === 'owner');
+  /** Владельца редактирует только он сам (имя, логин, телефон, пароль). */
+  protected readonly canEditSelected = computed(() => {
+    const u = this.selected();
+    return !!u && (u.role !== 'owner' || u.id === this.meId());
+  });
+  /** В форме — аккаунт владельца: роль и статус не меняются. */
+  protected readonly editingOwner = signal(false);
+  /** Роль owner другому сотруднику не назначается (422 fields.role). */
+  protected readonly roleOptions = computed(() =>
+    this.editingOwner() ? this.roleList() : this.roleList().filter((r) => r.code !== 'owner'),
+  );
+  /** Ошибки полей с сервера (422 fields.*): hotelIds, role. */
+  protected readonly fieldErrors = signal<Record<string, string>>({});
 
   /** Матрица «Роли и права доступа»: раздел меню × роль (доступ есть / нет). */
   protected readonly permissions = computed(() =>
@@ -128,6 +164,7 @@ export class UsersPage {
         colId: 'role',
         headerName: t('users.col.role'),
         flex: 1.2,
+        minWidth: 160,
         valueGetter: (p) => (p.data ? this.roleName(p.data) : ''),
         cellRenderer: (p: { data: StaffUser; value: string }) => {
           const tone = roleTone(p.data.role);
@@ -138,6 +175,7 @@ export class UsersPage {
         field: 'phone',
         headerName: t('users.col.phone'),
         flex: 1.3,
+        minWidth: 180,
         cellClass: 'text-ink-2 tabular-nums',
       },
       {
@@ -154,7 +192,7 @@ export class UsersPage {
         colId: 'lastLogin',
         headerName: t('users.col.lastLogin'),
         flex: 1.3,
-        minWidth: 170,
+        minWidth: 180,
         // Значение — дата входа (для фильтра по периоду), подпись — в valueFormatter.
         valueGetter: (p) => p.data?.lastLogin ?? '',
         valueFormatter: (p) => {
@@ -181,13 +219,19 @@ export class UsersPage {
   protected readonly formOpen = signal(false);
   protected readonly editId = signal<number | null>(null);
   protected readonly tried = signal(false);
+  /**
+   * Префикс логина (v1.7): «<код владельца>_» — при создании из CurrentUser.organization.code,
+   * при редактировании — из логина сотрудника. В поле формы — только часть после префикса.
+   */
+  protected readonly loginPrefix = signal('');
   protected readonly form = this.fb.group({
     name: ['', Validators.required],
-    login: ['', [Validators.required, Validators.pattern(/^[a-z0-9._-]{3,32}$/)]],
+    login: ['', [Validators.required, loginNameValidator(() => this.loginPrefix())]],
     phone: [''],
     role: this.fb.control<RoleCode>('admin'),
     active: [true],
     password: [''],
+    hotelIds: this.fb.control<number[]>([]),
   });
 
   protected readonly confirmOpen = signal(false);
@@ -257,19 +301,42 @@ export class UsersPage {
   }
 
   protected invalid(name: 'name' | 'login' | 'password'): boolean {
-    return this.tried() && this.form.controls[name].invalid;
+    return (this.tried() && this.form.controls[name].invalid) || !!this.fieldErrors()[name];
+  }
+
+  /** Роль по умолчанию для нового сотрудника: admin, если он есть, иначе первая доступная. */
+  private defaultRole(): RoleCode {
+    const list = this.roleList().filter((r) => r.code !== 'owner');
+    return list.some((r) => r.code === 'admin') ? 'admin' : (list[0]?.code ?? 'admin');
+  }
+
+  /** Роль и статус владельца менять нельзя — поля выключены. */
+  private lockOwnerFields(owner: boolean): void {
+    this.editingOwner.set(owner);
+    for (const c of [this.form.controls.role, this.form.controls.active]) {
+      if (owner) {
+        c.disable();
+      } else {
+        c.enable();
+      }
+    }
   }
 
   protected openAdd(): void {
     this.editId.set(null);
     this.tried.set(false);
+    this.fieldErrors.set({});
+    this.lockOwnerFields(false);
+    this.loginPrefix.set(orgLoginPrefix(this.auth.user()?.organization?.code));
+    const current = this.auth.hotelId();
     this.form.reset({
       name: '',
       login: '',
       phone: '',
-      role: 'admin',
+      role: this.defaultRole(),
       active: true,
       password: '',
+      hotelIds: current !== null ? [current] : [],
     });
     this.form.controls.password.setValidators([Validators.required, Validators.minLength(6)]);
     this.form.controls.password.updateValueAndValidity();
@@ -278,22 +345,34 @@ export class UsersPage {
 
   protected openEdit(): void {
     const u = this.selected();
-    if (!u) {
+    if (!u || !this.canEditSelected()) {
       return;
     }
     this.editId.set(u.id);
     this.tried.set(false);
+    this.fieldErrors.set({});
+    this.lockOwnerFields(u.role === 'owner');
+    // В поле — только отели редактора; прочие привязки сервер сохраняет сам.
+    const mine = new Set(this.hotelOptions().map((h) => h.id));
+    const prefix = loginPrefixOf(u.login) ?? orgLoginPrefix(this.auth.user()?.organization?.code);
+    this.loginPrefix.set(prefix);
     this.form.reset({
       name: u.name,
-      login: u.login,
+      login: loginName(prefix, u.login),
       phone: u.phone,
       role: u.role,
       active: u.active,
       password: '',
+      hotelIds: u.hotelIds.filter((id) => mine.has(id)),
     });
     this.form.controls.password.clearValidators();
     this.form.controls.password.updateValueAndValidity();
     this.formOpen.set(true);
+  }
+
+  /** Окно «Сменить пароль» для себя (POST /auth/change-password); само окно — в каркасе (Shell). */
+  protected openChangePassword(): void {
+    this.auth.passwordDialog.set(true);
   }
 
   protected generatePassword(): void {
@@ -314,13 +393,21 @@ export class UsersPage {
       return;
     }
     const v = this.form.getRawValue();
+    const withHotels = this.showHotels() && !this.editingOwner();
+    if (withHotels && !v.hotelIds.length) {
+      this.fieldErrors.set({ hotelIds: 'required' });
+      this.notify.error('users.toast.requiredTitle', 'users.toast.hotelsRequired');
+      return;
+    }
+    this.fieldErrors.set({});
     const draft: StaffUserDraft = {
       name: v.name.trim(),
-      login: v.login.trim(),
+      login: joinLogin(this.loginPrefix(), v.login),
       phone: v.phone.trim(),
       role: v.role,
       active: v.active,
       password: v.password || undefined,
+      ...(withHotels ? { hotelIds: v.hotelIds } : {}),
     };
     const id = this.editId();
     if (id === this.meId() && !draft.active) {
@@ -335,12 +422,18 @@ export class UsersPage {
         this.saving.set(false);
         this.formOpen.set(false);
         if (id === null) {
-          this.users.update((l) => [...l, saved]);
-          this.notify.success('users.toast.addedTitle', 'users.toast.addedText', {
+          // Сотрудник в другом отеле в список текущего отеля не попадает.
+          const here = this.auth.hotelId();
+          if (here === null || !saved.hotelIds.length || saved.hotelIds.includes(here)) {
+            this.users.update((l) => [...l, saved]);
+          }
+          // Пароль задал создатель — показываем логин и пароль, чтобы передать сотруднику.
+          this.tempPassword.set({
             name: saved.name,
-            role: this.roleName(saved),
             login: saved.login,
+            password: draft.password ?? '',
           });
+          this.copied.set(false);
         } else {
           this.users.update((l) => l.map((u) => (u.id === id ? saved : u)));
           this.notify.success('common.savedTitle', 'users.toast.updatedText', { name: saved.name });
@@ -349,6 +442,10 @@ export class UsersPage {
       },
       error: (e: unknown) => {
         this.saving.set(false);
+        if (e instanceof ApiError && Object.keys(e.fields).length) {
+          // 422: fields.hotelIds / fields.role = invalid — показываем у поля.
+          this.fieldErrors.set(e.fields);
+        }
         if (e instanceof ApiError && e.code === 'users.loginTaken') {
           this.notify.error('users.toast.loginTakenTitle', 'users.toast.loginTakenText', {
             login: draft.login,
@@ -370,6 +467,10 @@ export class UsersPage {
     }
     if (u.id === this.meId()) {
       this.notify.error('users.toast.forbiddenTitle', 'users.toast.selfBlock');
+      return;
+    }
+    if (u.role === 'owner') {
+      this.notify.error('users.toast.forbiddenTitle', 'errors.users.owner');
       return;
     }
     this.api.setActive(u.id, !u.active).subscribe({
@@ -395,6 +496,10 @@ export class UsersPage {
     if (!u) {
       return;
     }
+    if (u.role === 'owner') {
+      this.notify.error('users.toast.forbiddenTitle', 'errors.users.owner');
+      return;
+    }
     this.api.resetPassword(u.id).subscribe({
       next: (r) => {
         // Сервер вернул временный пароль (SMS пока нет) — показываем его администратору.
@@ -418,8 +523,12 @@ export class UsersPage {
   /** Окно «Роли и права доступа». */
   protected readonly rolesOpen = signal(false);
 
-  // ----- Временный пароль после сброса -----
-  protected readonly tempPassword = signal<{ name: string; password: string } | null>(null);
+  // ----- Пароль один раз: после сброса или логин + пароль после создания (login задан) -----
+  protected readonly tempPassword = signal<{
+    name: string;
+    password: string;
+    login?: string;
+  } | null>(null);
   protected readonly copied = signal(false);
 
   protected closeTempPassword(): void {
@@ -427,12 +536,16 @@ export class UsersPage {
   }
 
   protected async copyTempPassword(): Promise<void> {
-    const p = this.tempPassword()?.password;
-    if (!p) {
+    const t = this.tempPassword();
+    if (!t?.password) {
       return;
     }
+    const text = t.login
+      ? `${this.transloco.translate('users.form.login')}: ${t.login}\n` +
+        `${this.transloco.translate('users.created.password')}: ${t.password}`
+      : t.password;
     try {
-      await navigator.clipboard.writeText(p);
+      await navigator.clipboard.writeText(text);
       this.copied.set(true);
     } catch {
       // буфер обмена недоступен (нет HTTPS / запрет браузера) — пароль виден на экране
@@ -447,6 +560,10 @@ export class UsersPage {
     }
     if (u.id === this.meId()) {
       this.notify.error('users.toast.forbiddenTitle', 'users.toast.selfDelete');
+      return;
+    }
+    if (u.role === 'owner') {
+      this.notify.error('users.toast.forbiddenTitle', 'errors.users.owner');
       return;
     }
     this.confirmOpen.set(true);

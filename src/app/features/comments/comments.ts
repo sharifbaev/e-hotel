@@ -127,7 +127,7 @@ export class CommentsPage {
         field: 'at',
         headerName: t('comments.col.at'),
         flex: 1.15,
-        minWidth: 170,
+        minWidth: 180,
         sort: 'desc',
         valueFormatter: (p) => formatDateTime(p.value),
         ...dateFilter<GuestComment>(),

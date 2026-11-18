@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Service, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 import { API_URL } from '../api/api';
+import { AuthService } from '../auth/auth.service';
 import { LanAddress } from '../models';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
@@ -10,7 +11,8 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 /**
  * QR-коды номеров для комментариев гостей (REST API /qr).
  *
- * Ссылка в QR-коде ведёт на страницу гостя `/c/<номер>`. Если сайт открыт как localhost,
+ * Ссылка в QR-коде ведёт на страницу гостя `/qr/<id отеля>/<номер>` (v1.6; старые `/c/<номер>`
+ * сервер больше не узнаёт — их QR-коды нужно напечатать заново). Если сайт открыт как localhost,
  * телефон по такой ссылке ничего не откроет, поэтому адрес берётся из Wi-Fi IP ноутбука
  * (GET /api/lan — локальный server/hotel-api.mjs, нужен только в этом случае).
  */
@@ -19,6 +21,7 @@ export class RoomQrService {
   private readonly http = inject(HttpClient);
   private readonly document = inject(DOCUMENT);
   private readonly base = `${inject(API_URL)}/qr`;
+  private readonly auth = inject(AuthService);
 
   /** Номера с включённым QR-кодом. null — ещё не загружено или API недоступен. */
   readonly enabledRooms = signal<Set<string> | null>(null);
@@ -62,10 +65,15 @@ export class RoomQrService {
     );
   }
 
-  /** Публичная проверка со страницы гостя. */
-  check(room: string): Observable<boolean> {
+  /**
+   * Публичная проверка со страницы гостя. hotelId — из адреса QR-ссылки (гость не входит в систему);
+   * без него (старая ссылка) сервер отвечает enabled: false.
+   */
+  check(room: string, hotelId?: number | null): Observable<boolean> {
     return this.http
-      .get<{ enabled: boolean }>(`${this.base}/${encodeURIComponent(room)}`)
+      .get<{ enabled: boolean }>(`${this.base}/${encodeURIComponent(room)}`, {
+        headers: hotelHeader(hotelId),
+      })
       .pipe(map((r) => r.enabled));
   }
 
@@ -90,7 +98,13 @@ export class RoomQrService {
     return LOCAL_HOSTS.has(this.document.location.hostname);
   }
 
+  /** Ссылка для QR-кода (v1.7, без поддомена): https://hotelos.uz/qr/<id текущего отеля>/<номер>. */
   feedbackUrl(origin: string, room: string): string {
-    return `${origin}/c/${encodeURIComponent(room)}`;
+    return `${origin}/qr/${this.auth.hotelId() ?? 0}/${encodeURIComponent(room)}`;
   }
+}
+
+/** Заголовок X-Hotel-Id для публичных запросов страницы гостя (там нет сессии). */
+export function hotelHeader(hotelId?: number | null): Record<string, string> {
+  return hotelId ? { 'X-Hotel-Id': String(hotelId) } : {};
 }

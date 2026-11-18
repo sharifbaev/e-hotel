@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, input, signal } from '@angular/cor
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
+import { of } from 'rxjs';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ButtonModule } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
@@ -17,7 +18,9 @@ import { LangSwitch } from '../../shared/ui/lang-switch/lang-switch';
 const MAX_TEXT = 500;
 
 /**
- * Публичная страница, которая открывается по QR-коду из номера (`/c/:room`).
+ * Публичная страница, которая открывается по QR-коду из номера (`/qr/:hotelId/:room`, v1.6).
+ * id отеля из адреса уходит в заголовок X-Hotel-Id. Старая ссылка `/c/:room` — без отеля,
+ * сервер отвечает «QR выключен».
  * Без входа в систему: гость ставит оценку, пишет комментарий и (по желанию) имя.
  */
 @Component({
@@ -29,6 +32,13 @@ const MAX_TEXT = 500;
 export class FeedbackPage {
   /** Номер комнаты из адреса (withComponentInputBinding). */
   readonly room = input.required<string>();
+  /** id отеля из адреса QR-ссылки (у старой ссылки `/c/:room` — нет). */
+  readonly hotelId = input<number | null, string | undefined>(null, {
+    transform: (v) => {
+      const n = Number(v);
+      return Number.isInteger(n) && n > 0 ? n : null;
+    },
+  });
 
   private readonly qr = inject(RoomQrService);
   private readonly comments = inject(CommentsService);
@@ -42,10 +52,14 @@ export class FeedbackPage {
 
   /** Проверка, что QR-код этого номера включён. */
   protected readonly check = rxResource({
-    params: () => this.room(),
-    stream: ({ params }) => this.qr.check(params),
+    params: () => ({ room: this.room(), hotelId: this.hotelId() }),
+    stream: ({ params }) =>
+      params.hotelId ? this.qr.check(params.room, params.hotelId) : of(false),
   });
-  private readonly hotelRes = rxResource({ stream: () => this.settings.getHotel() });
+  private readonly hotelRes = rxResource({
+    params: () => this.hotelId() ?? undefined,
+    stream: ({ params }) => this.settings.getHotel(params),
+  });
   protected readonly hotel = computed(() =>
     this.hotelRes.hasValue() ? this.hotelRes.value() : null,
   );
@@ -80,12 +94,15 @@ export class FeedbackPage {
     }
     this.sending.set(true);
     this.comments
-      .create({
-        room: this.room(),
-        rating: this.rating(),
-        text: this.text().trim(),
-        guest: this.name().trim(),
-      })
+      .create(
+        {
+          room: this.room(),
+          rating: this.rating(),
+          text: this.text().trim(),
+          guest: this.name().trim(),
+        },
+        this.hotelId(),
+      )
       .subscribe({
         next: () => {
           this.sending.set(false);

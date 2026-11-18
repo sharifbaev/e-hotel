@@ -237,7 +237,7 @@ export class ExpensesPage {
         headerName: t('col.date'),
         flex: 1,
         sort: 'desc',
-        minWidth: 170,
+        minWidth: 180,
         valueFormatter: (p) => formatDateTime(p.value),
         ...dateFilter<Expense>(),
         cellClass: 'text-ink-2',

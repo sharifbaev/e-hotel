@@ -56,6 +56,46 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   );
 };
 
+/** Заголовок текущего отеля (v1.6). */
+export const HOTEL_HEADER = 'X-Hotel-Id';
+
+/**
+ * v1.6: к каждому запросу в /api/v1 добавляет `X-Hotel-Id` текущего отеля (AuthService.hotelId).
+ * Не трогает /auth/login и /auth/refresh и запросы, где заголовок уже задан
+ * (страница гостя по QR передаёт id отеля из адреса сама).
+ * Ответы: 422 hotel.required — открыть выбор отеля; 403 hotel.forbidden — сбросить выбор,
+ * перечитать /auth/me и снова предложить выбрать отель.
+ */
+export const hotelInterceptor: HttpInterceptorFn = (req, next) => {
+  const base = inject(API_URL);
+  if (!isApiUrl(req.url, base)) {
+    return next(req);
+  }
+  const path = req.url.slice(base.length);
+  if (NO_TOKEN_PATHS.some((p) => path.startsWith(p))) {
+    return next(req);
+  }
+  const auth = inject(AuthService);
+  const hotelId = auth.hotelId();
+  const out =
+    hotelId !== null && !req.headers.has(HOTEL_HEADER)
+      ? req.clone({ setHeaders: { [HOTEL_HEADER]: String(hotelId) } })
+      : req;
+  return next(out).pipe(
+    catchError((e: unknown) => {
+      if (e instanceof HttpErrorResponse && (e.status === 422 || e.status === 403)) {
+        const code = toApiError(e).code;
+        if (code === 'hotel.required') {
+          auth.requireHotel();
+        } else if (code === 'hotel.forbidden' && !path.startsWith('/auth/me')) {
+          auth.hotelForbidden();
+        }
+      }
+      return throwError(() => e);
+    }),
+  );
+};
+
 /** Ошибки API → ApiError с кодом сервера (`auth.invalid`, `rooms.full`…) для i18n. */
 export const apiErrorInterceptor: HttpInterceptorFn = (req, next) => {
   if (!isApiUrl(req.url, inject(API_URL))) {

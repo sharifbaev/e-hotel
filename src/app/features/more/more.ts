@@ -10,6 +10,7 @@ import { initials } from '../../shared/format/format';
 import { Icon, IconName } from '../../shared/ui/icon/icon';
 import { LangSwitch } from '../../shared/ui/lang-switch/lang-switch';
 import { Sheet } from '../../shared/ui/sheet/sheet';
+import { HotelSwitcher } from '../../shared/ui/hotel-switcher/hotel-switcher';
 
 interface MoreLink {
   path: string;
@@ -98,7 +99,16 @@ const LINKS: MoreLink[] = [
 /** «Ещё» — мобильный раздел: профиль, остальные разделы, язык, выход. */
 @Component({
   selector: 'app-more',
-  imports: [RouterLink, TranslocoPipe, ButtonModule, Icon, LangSwitch, Sheet, RoleLabelPipe],
+  imports: [
+    RouterLink,
+    TranslocoPipe,
+    ButtonModule,
+    Icon,
+    LangSwitch,
+    Sheet,
+    RoleLabelPipe,
+    HotelSwitcher,
+  ],
   template: `
     <header class="shrink-0 border-b border-line-2 bg-white px-4 pt-3.5 pb-3">
       <h1 class="m-0 text-xl font-bold">{{ 'nav.more' | transloco }}</h1>
@@ -121,6 +131,8 @@ const LINKS: MoreLink[] = [
           >
         </div>
       </div>
+
+      <app-hotel-switcher variant="block" />
 
       <nav
         [attr.aria-label]="'more.sections' | transloco"
@@ -157,6 +169,14 @@ const LINKS: MoreLink[] = [
         <app-lang-switch variant="segmented" />
       </section>
 
+      <button
+        type="button"
+        class="tap flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-line-2 bg-white text-[15px] font-semibold text-ink"
+        (click)="auth.passwordDialog.set(true)"
+      >
+        <app-icon name="key" />
+        {{ 'password.menu' | transloco }}
+      </button>
       <button
         type="button"
         class="tap flex h-[52px] cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-[#FECDCA] bg-white text-[15px] font-semibold text-danger"

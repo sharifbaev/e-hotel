@@ -5,8 +5,9 @@ import type { FiscalReceiptData } from '../docs/fiscal-receipt-doc';
 export type Lang = 'ru' | 'uz-Latn' | 'uz-Cyrl';
 
 /**
- * Код роли. Системные роли — owner, admin, accountant (нельзя удалить);
- * роли, созданные в «Настройки → Справочники», получают код от сервера.
+ * Код роли: owner, admin, accountant или role_<id>. v1.6: системная роль только owner;
+ * admin и accountant — начальные роли, владелец может их переименовать и удалить.
+ * У удалённого сотрудника удалённой роли — "".
  */
 export type RoleCode = string;
 
@@ -50,7 +51,7 @@ export interface Role {
   code: RoleCode;
   /** Название; у системных ролей в интерфейсе показывается перевод roles.<code>. */
   name: string;
-  /** true — системная роль (owner/admin/accountant): нельзя удалить и переименовать. */
+  /** true — системная роль (v1.6: только owner): нельзя изменить и удалить. */
   system: boolean;
   /** Разделы меню, доступные роли. У owner — всегда все. */
   sections: AppSection[];
@@ -98,10 +99,33 @@ export interface CurrentUser {
   roleName?: string;
   /** Разделы меню, доступные пользователю; нет — берутся DEFAULT_ROLE_SECTIONS по коду роли. */
   sections?: AppSection[];
+  /** Текущий отель (X-Hotel-Id или единственный отель сотрудника); null — не выбран. */
+  hotelId: number | null;
+  /** Название текущего отеля; не выбран — "". */
   hotelName: string;
+  /** Город текущего отеля; не выбран — "". */
   hotelCity: string;
-  /** true — пароль сброшен администратором, сервер ждёт смены пароля. */
-  mustChangePassword?: boolean;
+  /** Отели, в которые сотрудник может войти (= GET /hotels). У супер-админа — []. */
+  hotels: HotelItem[];
+  /** Владелец (организация); code — префикс логинов его сотрудников: grand → grand_admin (v1.7). */
+  organization: OrganizationRef;
+  /** true — супер-админ платформы (логин platform_<имя>, v1.7). */
+  platformAdmin: boolean;
+}
+
+/** Отель (переключатель отелей, списки платформы). v1.6 */
+export interface HotelItem {
+  id: number;
+  name: string;
+  city: string;
+  /** false — заблокирован супер-админом, выбрать нельзя. */
+  active: boolean;
+}
+
+/** Владелец (организация). v1.6; v1.7 — code = префикс логинов. */
+export interface OrganizationRef {
+  code: string;
+  name: string;
 }
 
 export interface RoomCategory {
@@ -317,6 +341,8 @@ export interface StaffUser {
   /** ISO время последнего входа; null — ещё не входил. */
   lastLogin: IsoDateTime | null;
   online: boolean;
+  /** Отели, где работает сотрудник; у владельца — все отели (v1.6). */
+  hotelIds: number[];
 }
 
 export interface StaffUserDraft {
@@ -326,6 +352,11 @@ export interface StaffUserDraft {
   phone: string;
   active: boolean;
   password?: string;
+  /**
+   * Отели сотрудника (v1.6) — только из тех, где работает сам редактор.
+   * Создание: null / [] — текущий отель; изменение: null / нет поля — не меняется.
+   */
+  hotelIds?: number[] | null;
 }
 
 /** 2 — полный доступ, 1 — только просмотр, 0 — нет доступа. */
@@ -371,6 +402,8 @@ export interface ActionLogEntry {
   params: Record<string, string>;
   /** Какие поля изменены (имена полей API) — для операций update. */
   changes?: string[];
+  /** v1.6: отель действия; null — общее действие владельца (вход, сотрудники, роли, чёрный список). */
+  hotelId?: number | null;
 }
 
 export type DashboardMode = 'week' | 'month' | 'period';
@@ -442,4 +475,78 @@ export interface CommentDraft {
 export interface LanAddress {
   name: string;
   address: string;
+}
+
+// ===== v1.6: платформа (супер-админ; v1.7 — тот же адрес, вход по логину platform_<имя>) =====
+
+/** Реквизиты отеля, которые вводит супер-админ (POST/PUT /platform/…/hotels). */
+export interface HotelDraft {
+  name: string;
+  city: string;
+  legalName: string;
+  /** Пусто или 9 цифр (422 settings.innInvalid). */
+  inn: string;
+  phone: string;
+  address: string;
+}
+
+/** Аккаунт владельца при создании владельца (организации). */
+export interface OwnerDraft {
+  name: string;
+  login: string;
+  password: string;
+  phone: string;
+}
+
+/** POST /platform/organizations — владелец, его аккаунт и первый отель одной формой. */
+export interface OrganizationDraft {
+  /** Код владельца — префикс логинов его сотрудников (grand → grand_admin); потом не меняется. */
+  code: string;
+  name: string;
+  owner: OwnerDraft;
+  hotel: HotelDraft;
+}
+
+/** Аккаунт владельца в списках платформы. */
+export interface OwnerShort {
+  id: number;
+  name: string;
+  login: string;
+  phone: string;
+  active: boolean;
+}
+
+/** Владелец (организация) для платформы. */
+export interface Organization {
+  id: number;
+  code: string;
+  name: string;
+  active: boolean;
+  createdAt: IsoDateTime;
+  hotels: HotelItem[];
+  owners: OwnerShort[];
+}
+
+export interface PlatformAdmin {
+  id: number;
+  name: string;
+  login: string;
+  active: boolean;
+  lastLogin: IsoDateTime | null;
+}
+
+export interface PlatformAdminDraft {
+  name: string;
+  login: string;
+  password: string;
+}
+
+/** GET /platform/organizations/code-check — свободен ли код владельца (v1.7, только подсказка). */
+export interface CodeCheck {
+  /** Проверенный код, как был отправлен. */
+  code: string;
+  /** true — владелец с этим кодом может быть создан. */
+  available: boolean;
+  /** Причина, если available = false: invalid — формат/зарезервированное слово, taken — занят. */
+  reason: '' | 'invalid' | 'taken';
 }

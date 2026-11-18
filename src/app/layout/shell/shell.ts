@@ -10,6 +10,7 @@ import { StaffService } from '../../core/data/staff.service';
 import { BreakpointService } from '../../core/layout/breakpoint.service';
 import { initials } from '../../shared/format/format';
 import { ChangePasswordDialog } from '../../shared/ui/change-password/change-password-dialog';
+import { HotelPicker, HotelSwitcher } from '../../shared/ui/hotel-switcher/hotel-switcher';
 import { Icon } from '../../shared/ui/icon/icon';
 import { LangSwitch } from '../../shared/ui/lang-switch/lang-switch';
 import { ADMIN_NAV, MAIN_NAV, MOBILE_NAV, NavItem } from '../nav-items';
@@ -38,6 +39,8 @@ function readCollapsed(): boolean {
     Icon,
     LangSwitch,
     ChangePasswordDialog,
+    HotelSwitcher,
+    HotelPicker,
     RoleLabelPipe,
   ],
   templateUrl: './shell.html',
@@ -87,5 +90,11 @@ export class Shell {
   protected logout(): void {
     this.auth.logout();
     this.router.navigate(['/login']);
+  }
+
+  /** Супер-админ выходит из отеля в панель платформы (данные отеля сбрасываются перезагрузкой). */
+  protected backToPlatform(): void {
+    this.auth.selectHotel(null);
+    location.assign('/platform');
   }
 }

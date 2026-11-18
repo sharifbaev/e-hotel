@@ -66,8 +66,13 @@ export class SettingsService {
     return this.header$;
   }
 
-  getHotel(): Observable<HotelSettings> {
-    return this.http.get<HotelSettings>(`${this.api}/settings/hotel`).pipe(map(normHotel));
+  /** hotelId — только для страницы гостя по QR (без сессии; иначе X-Hotel-Id ставит интерцептор). */
+  getHotel(hotelId?: number | null): Observable<HotelSettings> {
+    return this.http
+      .get<HotelSettings>(`${this.api}/settings/hotel`, {
+        headers: hotelId ? { 'X-Hotel-Id': String(hotelId) } : {},
+      })
+      .pipe(map(normHotel));
   }
 
   /** После сохранения название и город сразу обновляются в шапке. */
@@ -99,18 +104,16 @@ export class SettingsService {
 
   /** Весь журнал (новые сверху); фильтры по сотруднику, действию и периоду — в таблице. */
   log(): Observable<ActionLogEntry[]> {
-    return this.http
-      .get<ActionLogEntry[]>(`${this.api}/audit-log`)
-      .pipe(
-        map((list) =>
-          list.map((l) => ({
-            ...l,
-            at: localDateTime(l.at),
-            params: l.params ?? {},
-            changes: l.changes ?? [],
-          })),
-        ),
-      );
+    return this.http.get<ActionLogEntry[]>(`${this.api}/audit-log`).pipe(
+      map((list) =>
+        list.map((l) => ({
+          ...l,
+          at: localDateTime(l.at),
+          params: l.params ?? {},
+          changes: l.changes ?? [],
+        })),
+      ),
+    );
   }
 
   /** Авторы записей журнала (в том числе удалённые сотрудники) — для фильтра «Сотрудник». */

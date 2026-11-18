@@ -15,6 +15,29 @@ export const guestGuard: CanActivateFn = () => {
   return !auth.isLoggedIn() || inject(Router).parseUrl(auth.homePath());
 };
 
+/**
+ * Каркас отеля: супер-админу, который не вошёл в отель, — панель платформы (v1.6).
+ */
+export const hotelModeGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return !auth.platformMode() || inject(Router).createUrlTree(['/platform']);
+};
+
+/**
+ * Панель платформы — только супер-админ. Вход на неё = выход из отеля
+ * (X-Hotel-Id больше не отправляется).
+ */
+export const platformGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  if (!auth.isPlatformAdmin()) {
+    return inject(Router).parseUrl(auth.homePath());
+  }
+  if (auth.hotelId() !== null) {
+    auth.selectHotel(null);
+  }
+  return true;
+};
+
 /** Разделы администрирования — только владелец и администратор. */
 export const adminGuard: CanActivateFn = () => {
   const auth = inject(AuthService);

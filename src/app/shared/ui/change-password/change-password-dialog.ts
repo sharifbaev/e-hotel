@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { ButtonModule } from 'primeng/button';
@@ -12,8 +12,8 @@ import { Icon } from '../icon/icon';
 type PasswordField = 'oldPassword' | 'newPassword' | 'repeat';
 
 /**
- * Обязательная смена пароля: администратор сбросил пароль (CurrentUser.mustChangePassword),
- * сотрудник вошёл временным паролем и должен задать свой. Окно нельзя закрыть — только выйти.
+ * Смена своего пароля (POST /auth/change-password) — по желанию сотрудника,
+ * из меню пользователя (шапка / «Ещё»). v1.6: принудительной смены пароля при входе нет.
  */
 @Component({
   selector: 'app-change-password-dialog',
@@ -21,11 +21,10 @@ type PasswordField = 'oldPassword' | 'newPassword' | 'repeat';
   template: `
     <p-dialog
       [visible]="open()"
+      (visibleChange)="!$event && close()"
       [modal]="true"
       [draggable]="false"
       [resizable]="false"
-      [closable]="false"
-      [closeOnEscape]="false"
       [header]="'password.title' | transloco"
       [style]="{ width: '420px', maxWidth: 'calc(100vw - 32px)' }"
     >
@@ -115,9 +114,9 @@ type PasswordField = 'oldPassword' | 'newPassword' | 'repeat';
             [outlined]="true"
             class="flex-1"
             [disabled]="saving()"
-            (click)="logout()"
+            (click)="close()"
           >
-            <span pButtonLabel>{{ 'shell.logout' | transloco }}</span>
+            <span pButtonLabel>{{ 'common.cancel' | transloco }}</span>
           </button>
           <button pButton type="submit" class="flex-1" [loading]="saving()">
             <span pButtonLabel>{{ 'common.save' | transloco }}</span>
@@ -131,7 +130,7 @@ export class ChangePasswordDialog {
   private readonly auth = inject(AuthService);
   private readonly notify = inject(NotifyService);
 
-  protected readonly open = computed(() => !!this.auth.user()?.mustChangePassword);
+  protected readonly open = this.auth.passwordDialog;
   /** Какие поля показаны открытым текстом (кнопка с глазом). */
   protected readonly shown = signal<Record<PasswordField, boolean>>({
     oldPassword: false,
@@ -170,8 +169,7 @@ export class ChangePasswordDialog {
     this.auth.changePassword(v.oldPassword, v.newPassword).subscribe({
       next: () => {
         this.saving.set(false);
-        this.form.reset();
-        this.tried.set(false);
+        this.close();
         this.notify.success('password.doneTitle', 'password.doneText');
       },
       error: (e: unknown) => {
@@ -188,8 +186,10 @@ export class ChangePasswordDialog {
     });
   }
 
-  protected logout(): void {
-    this.auth.logout();
-    location.assign('/login');
+  protected close(): void {
+    this.auth.passwordDialog.set(false);
+    this.form.reset();
+    this.tried.set(false);
+    this.shown.set({ oldPassword: false, newPassword: false, repeat: false });
   }
 }

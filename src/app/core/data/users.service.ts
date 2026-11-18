@@ -9,6 +9,7 @@ const norm = (u: StaffUser): StaffUser => ({
   phone: u.phone ?? '',
   lastLogin: localDateTime(u.lastLogin ?? null),
   online: !!u.online,
+  hotelIds: u.hotelIds ?? [],
 });
 
 /** Сотрудники и роли (REST API /users, /roles/permissions). Только владелец и администратор. */

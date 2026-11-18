@@ -31,6 +31,7 @@ import {
 } from '../../../shared/format/format';
 import { formatDocInput } from '../../../shared/format/format';
 import { SumInputDirective } from '../../../shared/forms/sum-input.directive';
+import { PhoneInputDirective } from '../../../shared/forms/phone-input.directive';
 import { PayLabelPipe } from '../../../shared/format/pay-label.pipe';
 import { PaymentTypesService } from '../../../core/data/payment-types.service';
 import { Icon } from '../../../shared/ui/icon/icon';
@@ -64,6 +65,7 @@ export type RegCheck =
 @Component({
   selector: 'app-registration-form',
   imports: [
+    PhoneInputDirective,
     ReactiveFormsModule,
     TranslocoPipe,
     ButtonModule,

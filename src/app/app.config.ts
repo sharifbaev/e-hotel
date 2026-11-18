@@ -10,7 +10,11 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { provideTransloco } from '@jsverse/transloco';
 import { providePrimeNG } from 'primeng/config';
 import { routes } from './app.routes';
-import { apiErrorInterceptor, authInterceptor } from './core/api/api.interceptors';
+import {
+  apiErrorInterceptor,
+  authInterceptor,
+  hotelInterceptor,
+} from './core/api/api.interceptors';
 import { AuthService } from './core/auth/auth.service';
 import { LanguageService } from './core/i18n/language.service';
 import { TranslocoHttpLoader } from './core/i18n/transloco-loader';
@@ -25,8 +29,12 @@ export const appConfig: ApplicationConfig = {
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
     ),
-    // Порядок: ответ сначала видит authInterceptor (обновление токена на 401), затем ошибка → ApiError.
-    provideHttpClient(withFetch(), withInterceptors([apiErrorInterceptor, authInterceptor])),
+    // Порядок: ответ сначала видит authInterceptor (обновление токена на 401),
+    // затем hotelInterceptor (X-Hotel-Id, hotel.required / hotel.forbidden), затем ошибка → ApiError.
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([apiErrorInterceptor, hotelInterceptor, authInterceptor]),
+    ),
     provideTransloco({
       config: {
         availableLangs: ['ru', 'uz-Latn', 'uz-Cyrl'],

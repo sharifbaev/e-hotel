@@ -1,6 +1,13 @@
 import { Routes } from '@angular/router';
 import { inject } from '@angular/core';
-import { authGuard, guestGuard, ownerGuard, sectionGuard } from './core/auth/auth.guards';
+import {
+  authGuard,
+  guestGuard,
+  hotelModeGuard,
+  ownerGuard,
+  platformGuard,
+  sectionGuard,
+} from './core/auth/auth.guards';
 import { AuthService } from './core/auth/auth.service';
 
 export const routes: Routes = [
@@ -11,14 +18,43 @@ export const routes: Routes = [
     title: 'HotelOS',
   },
   {
-    // Публичная страница по QR-коду из номера: гость оставляет комментарий без входа.
+    // Публичная страница по QR-коду из номера: гость оставляет комментарий без входа (v1.6).
+    path: 'qr/:hotelId/:room',
+    loadComponent: () => import('./features/feedback/feedback').then((m) => m.FeedbackPage),
+    title: 'HotelOS',
+  },
+  {
+    // Старые QR-ссылки (до v1.6): без отеля — страница покажет «QR выключен».
     path: 'c/:room',
     loadComponent: () => import('./features/feedback/feedback').then((m) => m.FeedbackPage),
     title: 'HotelOS',
   },
   {
+    // Панель супер-админа платформы (v1.6); v1.7 — тот же адрес, открывается по user.platformAdmin
+    path: 'platform',
+    canActivate: [authGuard, platformGuard],
+    loadComponent: () => import('./features/platform/platform-shell').then((m) => m.PlatformShell),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'organizations' },
+      {
+        path: 'organizations',
+        loadComponent: () =>
+          import('./features/platform/organizations').then((m) => m.OrganizationsPage),
+      },
+      {
+        path: 'organizations/:id',
+        loadComponent: () =>
+          import('./features/platform/organization').then((m) => m.OrganizationPage),
+      },
+      {
+        path: 'admins',
+        loadComponent: () => import('./features/platform/admins').then((m) => m.AdminsPage),
+      },
+    ],
+  },
+  {
     path: '',
-    canActivate: [authGuard],
+    canActivate: [authGuard, hotelModeGuard],
     loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
     children: [
       // Стартовая страница — первый раздел, доступный роли.

@@ -69,8 +69,11 @@
           [placeholder]="'login.loginPlaceholder' | transloco"
           [invalid]="invalid('login')"
           [attr.aria-invalid]="invalid('login')"
+          aria-describedby="login-hint"
           class="w-full"
         />
+        <!-- v1.7: полный логин с префиксом владельца, отправляется как есть -->
+        <span id="login-hint" class="text-xs text-muted">{{ 'login.loginHint' | transloco }}</span>
       </div>
 
       <div class="flex flex-col gap-1.5">

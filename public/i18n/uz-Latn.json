@@ -31,7 +31,9 @@
     "skipToContent": "Asosiy qismga o‘tish",
     "done": "Tayyor",
     "details": "Batafsil",
-    "errorTitle": "Xatolik"
+    "errorTitle": "Xatolik",
+    "copy": "Nusxalash",
+    "copied": "Nusxalandi"
   },
   "errors": {
     "auth": {
@@ -65,7 +67,8 @@
     },
     "users": {
       "loginTaken": "Bu login band.",
-      "self": "Bu amalni o‘z hisobingiz bilan bajarib bo‘lmaydi."
+      "self": "Bu amalni o‘z hisobingiz bilan bajarib bo‘lmaydi.",
+      "owner": "Ega akkauntini faqat platforma boshqaradi"
     },
     "blacklist": {
       "exists": "Bu hujjat allaqachon qora ro‘yxatda.",
@@ -96,6 +99,23 @@
     },
     "checkout": {
       "paymentSplit": "Karta va naqd summalari yig‘indisi umumiy summaga teng bo‘lishi kerak."
+    },
+    "hotel": {
+      "required": "Mehmonxonani tanlang",
+      "forbidden": "Bu mehmonxonaga kirish huquqingiz yo‘q"
+    },
+    "organizations": {
+      "exists": "Bu kod band",
+      "notFound": "Ega topilmadi"
+    },
+    "hotels": {
+      "notFound": "Mehmonxona topilmadi"
+    },
+    "book": {
+      "notFound": "Kitobdagi yozuv topilmadi."
+    },
+    "debts": {
+      "notFound": "Qarz topilmadi — ehtimol, u allaqachon to‘langan."
     }
   },
   "nav": {
@@ -147,7 +167,7 @@
     "title": "Tizimga kirish",
     "subtitle": "Mehmonxona administratori bergan login va parolni kiriting.",
     "login": "Login",
-    "loginPlaceholder": "masalan, reception1",
+    "loginPlaceholder": "masalan, grand_admin",
     "password": "Parol",
     "remember": "Meni eslab qol",
     "forgot": "Parolni unutdingizmi?",
@@ -156,7 +176,8 @@
     "errorTitle": "Kirib bo‘lmadi",
     "errorEmpty": "Login va parolni kiriting.",
     "forgotTitle": "Parolni tiklash",
-    "forgotText": "Parolni mehmonxona administratori tiklaydi: yangi vaqtinchalik parol sizga SMS orqali keladi."
+    "forgotText": "Parolni mehmonxona administratori tiklaydi: yangi vaqtinchalik parol sizga SMS orqali keladi.",
+    "loginHint": "Masalan: grand_admin"
   },
   "dashboard": {
     "title": "Boshqaruv paneli",
@@ -225,6 +246,14 @@
       "expenses": "Xarajatlar",
       "profit": "Foyda",
       "noBreakdown": "Server hozircha daromad taqsimotini yubormayapti — butun daromad yashash sifatida ko‘rsatilgan."
+    },
+    "empty": {
+      "chart": "Tanlangan davrda daromad va xarajat yo‘q.",
+      "categories": "Davr uchun xona toifalari yoki joylashuvlar yo‘q.",
+      "arrivals": "Bugun kelganlar yo‘q.",
+      "expenses": "Hozircha xarajatlar yo‘q.",
+      "errorTitle": "Yuklab bo‘lmadi",
+      "errorText": "Ma’lumotlar yuklanmadi. Sahifani keyinroq yangilang."
     }
   },
   "rooms": {
@@ -785,14 +814,21 @@
       "name": "F.I.Sh.",
       "namePlaceholder": "masalan, Malika Yusupova",
       "login": "Login",
-      "loginHint": "Lotin harflari, raqamlar, nuqta va chiziqcha — kamida 3 ta belgi",
+      "loginHint": "Lotin harflari, raqamlar, nuqta va chiziqcha; butun login — 64 belgigacha",
       "phone": "Telefon",
       "role": "Rol",
       "status": "Holat",
       "activeLabel": "Faol, tizimga kira oladi",
-      "password": "Vaqtinchalik parol",
-      "passwordHint": "Birinchi kirishda xodim parolni almashtiradi",
-      "generate": "Yaratish"
+      "password": "Parol",
+      "passwordHint": "Kamida 6 ta belgi. Saqlangandan keyin login va parolni xodimga bering.",
+      "generate": "Yaratish",
+      "hotels": "Mehmonxonalar",
+      "hotelsPlaceholder": "Mehmonxonalarni tanlang",
+      "hotelsHint": "Xodim faqat tanlangan mehmonxonalarda ishlaydi.",
+      "hotelsInvalid": "Siz ishlamaydigan mehmonxona tanlangan. Ro‘yxatni tekshiring.",
+      "roleInvalid": "Bu rolni berib bo‘lmaydi.",
+      "ownerHint": "Ega akkaunti: rol va holatni o‘zgartirib bo‘lmaydi.",
+      "loginPrefix": "Login «{{prefix}}» bilan boshlanishi kerak"
     },
     "confirm": {
       "title": "Foydalanuvchi o‘chirilsinmi?",
@@ -817,12 +853,13 @@
       "passwordResetTitle": "Parol tiklandi",
       "passwordResetText": "Vaqtinchalik parol {{phone}} raqamiga SMS orqali yuborildi.",
       "deletedTitle": "Foydalanuvchi o‘chirildi",
-      "deletedText": "{{name}} tizimdan o‘chirildi."
+      "deletedText": "{{name}} tizimdan o‘chirildi.",
+      "hotelsRequired": "Kamida bitta mehmonxonani tanlang."
     },
     "tempPassword": {
-      "title": "Vaqtinchalik parol",
-      "text": "{{name}} xodimining paroli tiklandi. Unga ushbu vaqtinchalik parolni bering — kirishda tizim yangi parol o‘rnatishni so‘raydi.",
-      "label": "Vaqtinchalik parol",
+      "title": "Yangi parol",
+      "text": "{{name}} xodimining paroli tiklandi. Unga ushbu yangi parolni bering. Xohlasa, keyin «Parolni almashtirish» menyusidan o‘zgartiradi.",
+      "label": "Yangi parol",
       "copy": "Nusxalash",
       "copied": "Nusxalandi",
       "hint": "Parol bir marta ko‘rsatiladi. Oyna yopilgandan keyin uni qayta ko‘rib bo‘lmaydi — faqat yana tiklash mumkin.",
@@ -830,7 +867,13 @@
       "copyFailText": "Brauzer almashish buferiga ruxsat bermadi. Parolni belgilab, qo‘lda nusxalang."
     },
     "rolesButton": "Rollar va huquqlar",
-    "search": "F.I.Sh., login yoki telefon"
+    "search": "F.I.Sh., login yoki telefon",
+    "created": {
+      "title": "Xodim qo‘shildi",
+      "text": "{{name}} uchun login va parol. Ularni xodimga bering — parol boshqa ko‘rsatilmaydi.",
+      "password": "Parol",
+      "copyAll": "Login va parolni nusxalash"
+    }
   },
   "settings": {
     "title": "Sozlamalar",
@@ -976,6 +1019,23 @@
         },
         "settings": {
           "hotel": "mehmonxona sozlamalarini o‘zgartirdi"
+        },
+        "organization": {
+          "create": "«{{target}}» egasini yaratdi",
+          "update": "«{{target}}» egasini o‘zgartirdi",
+          "block": "«{{target}}» egasini blokladi",
+          "unblock": "«{{target}}» egasini blokdan chiqardi"
+        },
+        "hotel": {
+          "create": "«{{target}}» mehmonxonasini qo‘shdi",
+          "update": "«{{target}}» mehmonxonasi rekvizitlarini o‘zgartirdi",
+          "block": "«{{target}}» mehmonxonasini blokladi",
+          "unblock": "«{{target}}» mehmonxonasini blokdan chiqardi"
+        },
+        "platformAdmin": {
+          "create": "{{target}} super-adminini qo‘shdi",
+          "block": "{{target}} super-adminini blokladi",
+          "unblock": "{{target}} super-adminini blokdan chiqardi"
         }
       },
       "col": {
@@ -1000,7 +1060,10 @@
         "serviceType": "Xizmat turlari",
         "paymentType": "To‘lov turlari",
         "comment": "Izohlar",
-        "settings": "Sozlamalar"
+        "settings": "Sozlamalar",
+        "organization": "Ega",
+        "hotel": "Mehmonxona",
+        "platformAdmin": "Super-admin"
       },
       "field": {
         "name": "nomi",
@@ -1045,7 +1108,8 @@
         "paid": "to‘landi {{v}} so‘m",
         "debt": "qarzga {{v}} so‘m",
         "rest": "qoldiq {{v}} so‘m"
-      }
+      },
+      "platform": "Super-admin"
     },
     "unsaved": "Saqlanmagan o‘zgarishlar bor",
     "toast": {
@@ -1064,7 +1128,7 @@
     },
     "roles": {
       "title": "Xodimlar rollari",
-      "subtitle": "Har bir rol menyuning qaysi bo‘limlarini ko‘radi. Egasi, administrator va buxgalter — tizim rollari.",
+      "subtitle": "Har bir rol menyuning qaysi bo‘limlarini ko‘radi. Ega — tizim roli; administrator va buxgalter rollarini o‘zgartirish yoki o‘chirish mumkin.",
       "add": "Rol qo‘shish",
       "addTitle": "Yangi rol",
       "editTitle": "Rolni o‘zgartirish",
@@ -1391,7 +1455,8 @@
     "downloadedText": "{{file}} fayli yuklab olindi.",
     "createdTitle": "QR-kod yaratildi",
     "createdText": "{{room}}-xona: kodni chop etib, xonaga joylashtiring.",
-    "fileName": "qr-xona-{{room}}"
+    "fileName": "qr-xona-{{room}}",
+    "reprintHint": "QR havolasi yangilandi (mehmonxona id si qo‘shildi). Eski QR kodlar ishlamaydi — ularni qayta chop etib, xonaga joylashtiring."
   },
   "comments": {
     "title": "Mehmonlar izohlari",
@@ -1562,18 +1627,19 @@
     "nights": "Tunlar"
   },
   "password": {
-    "title": "Parolni almashtiring",
-    "text": "Administrator parolingizni tikladi. Ishni davom ettirish uchun yangi parol o‘rnating.",
-    "old": "Vaqtinchalik parol",
+    "menu": "Parolni almashtirish",
+    "title": "Parolni almashtirish",
+    "text": "Joriy parolingizni va yangi parolni kiriting.",
+    "old": "Joriy parol",
     "new": "Yangi parol",
     "hint": "Kamida 6 ta belgi",
     "repeat": "Yangi parolni takrorlang",
     "errorTitle": "Parol o‘zgartirilmadi",
     "errorShort": "Barcha maydonlarni to‘ldiring; yangi parol kamida 6 ta belgi.",
     "errorMismatch": "Yangi parol va takrori mos emas.",
-    "errorWrong": "Vaqtinchalik parol noto‘g‘ri yoki yangi parol juda qisqa.",
+    "errorWrong": "Joriy parol noto‘g‘ri yoki yangi parol juda qisqa.",
     "doneTitle": "Parol o‘zgartirildi",
-    "doneText": "Endi yangi parol bilan kiring.",
+    "doneText": "Keyingi kirishda yangi paroldan foydalaning.",
     "show": "Parolni ko‘rsatish",
     "hide": "Parolni yashirish"
   },
@@ -1590,5 +1656,113 @@
     "mixed": "Aralash",
     "card": "Karta",
     "cash": "Naqd"
+  },
+  "hotels": {
+    "switch": "Mehmonxonani almashtirish",
+    "current": "Joriy mehmonxona",
+    "blocked": "Bloklangan",
+    "pickTitle": "Mehmonxonani tanlang",
+    "pickText": "Qaysi mehmonxonada ishlaysiz? Keyin sarlavhadagi ro‘yxatdan almashtirish mumkin.",
+    "none": "Sizga biriktirilgan faol mehmonxona yo‘q. Egaga murojaat qiling."
+  },
+  "platform": {
+    "title": "Platforma boshqaruvi",
+    "nav": {
+      "organizations": "Egalar",
+      "admins": "Super-adminlar"
+    },
+    "inHotel": "Super-admin: {{hotel}}",
+    "back": "Platformaga qaytish",
+    "orgs": {
+      "title": "Egalar",
+      "subtitle": "Mehmonxona egalari, ularning mehmonxonalari va ega akkauntlari",
+      "empty": "Hozircha egalar yo‘q",
+      "open": "Ochish",
+      "add": "Yangi ega",
+      "addTitle": "Yangi ega",
+      "create": "Yaratish",
+      "partOrg": "Ega",
+      "partOwner": "Ega akkaunti",
+      "partHotel": "Birinchi mehmonxona",
+      "code": "Ega kodi",
+      "codeHint": "Xodimlar loginining boshi: grand → grand_admin. Kichik lotin harflari, raqam, «-»; keyin o‘zgarmaydi",
+      "name": "Ega nomi",
+      "required": "Belgilangan maydonlarni to‘g‘ri to‘ldiring.",
+      "col": {
+        "code": "Kod",
+        "name": "Nomi",
+        "status": "Holat",
+        "createdAt": "Yaratilgan",
+        "hotels": "Mehmonxonalar",
+        "owners": "Ega akkauntlari"
+      },
+      "codeFree": "Bo‘sh",
+      "codeTaken": "Bu kod band",
+      "codeInvalid": "Kod noto‘g‘ri: kichik lotin harflari, raqam, «-», 3–30 belgi",
+      "resetText": "Ega akkauntini tanlang — unga yangi parol yaratiladi, eski sessiyalar tugaydi."
+    },
+    "owner": {
+      "name": "F.I.Sh.",
+      "login": "Login",
+      "password": "Parol",
+      "phone": "Telefon"
+    },
+    "hotel": {
+      "name": "Mehmonxona nomi",
+      "city": "Shahar",
+      "legalName": "Yuridik nomi",
+      "inn": "STIR",
+      "innHint": "Bo‘sh yoki 9 ta raqam",
+      "phone": "Telefon",
+      "address": "Manzil",
+      "required": "Mehmonxona nomi va shaharni kiriting; STIR — bo‘sh yoki 9 raqam."
+    },
+    "handover": {
+      "title": "Egaga berish",
+      "text": "«{{name}}» yaratildi. Egaga login va parolni bering.",
+      "link": "Sayt manzili"
+    },
+    "credentials": {
+      "copyAll": "Hammasini nusxalash",
+      "hint": "Parol bir marta ko‘rsatiladi. Oyna yopilgach, uni qayta ko‘rib bo‘lmaydi — faqat tiklash mumkin."
+    },
+    "org": {
+      "rename": "Nomini o‘zgartirish",
+      "codeFixed": "Ega kodi o‘zgarmaydi.",
+      "renamed": "Ega nomi: «{{name}}».",
+      "hotels": "Mehmonxonalar",
+      "addHotel": "Mehmonxona qo‘shish",
+      "requisites": "Rekvizitlar",
+      "enter": "Kirish",
+      "owners": "Ega akkauntlari",
+      "hotelAddedTitle": "Mehmonxona qo‘shildi",
+      "hotelSaved": "«{{name}}» saqlandi.",
+      "blockedTitle": "Bloklandi",
+      "blockedText": "«{{name}}» bloklandi.",
+      "unblockedTitle": "Blokdan chiqarildi",
+      "unblockedText": "«{{name}}» yana ishlaydi.",
+      "editHotel": "Mehmonxonani o‘zgartirish"
+    },
+    "confirm": {
+      "blockOrgTitle": "Ega bloklansinmi?",
+      "blockOrgText": "«{{name}}» egasining barcha mehmonxonalarida hech kim tizimga kira olmaydi.",
+      "unblockOrgTitle": "Ega blokdan chiqarilsinmi?",
+      "unblockOrgText": "«{{name}}» xodimlari yana tizimga kira oladi.",
+      "blockHotelTitle": "Mehmonxona bloklansinmi?",
+      "blockHotelText": "«{{name}}» mehmonxonasiga xodimlar kira olmaydi, QR sahifasi ishlamaydi.",
+      "unblockHotelTitle": "Mehmonxona blokdan chiqarilsinmi?",
+      "unblockHotelText": "«{{name}}» mehmonxonasi yana ishlaydi.",
+      "resetTitle": "Parol tiklansinmi?",
+      "resetText": "{{name}} uchun yangi parol yaratiladi, eski sessiyalari tugaydi."
+    },
+    "reset": {
+      "title": "Yangi parol",
+      "text": "{{name}} uchun yangi parol. Uni egaga bering."
+    },
+    "admins": {
+      "title": "Super-adminlar",
+      "subtitle": "Platformani boshqaradigan administratorlar",
+      "addTitle": "Yangi super-admin"
+    }
   }
 }

@@ -25,6 +25,19 @@
         <app-icon name="shield" />
         <span pButtonLabel>{{ 'users.rolesButton' | transloco }}</span>
       </button>
+      <!-- Смена своего пароля (то же окно, что и ключ в шапке) -->
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [outlined]="true"
+        aria-haspopup="dialog"
+        [class.flex-1]="bp.isMobile()"
+        (click)="openChangePassword()"
+      >
+        <app-icon name="key" />
+        <span pButtonLabel>{{ 'password.menu' | transloco }}</span>
+      </button>
       @if (bp.isMobile()) {
         <!-- Телефон: действия с сотрудником — в шторке по нажатию на карточку -->
         <button pButton type="button" class="flex-1" (click)="openAdd()">
@@ -32,6 +45,8 @@
           <span pButtonLabel>{{ 'common.add' | transloco }}</span>
         </button>
       } @else {
+      <!-- Аккаунт владельца: блокировать, удалять и сбрасывать пароль может только платформа -->
+      @if (!selectedIsOwner()) {
       <button
         pButton
         type="button"
@@ -67,12 +82,13 @@
         <app-icon name="key" />
         <span pButtonLabel>{{ 'users.resetPassword' | transloco }}</span>
       </button>
+      }
       <button
         pButton
         type="button"
         severity="secondary"
         [outlined]="true"
-        [disabled]="!selected()"
+        [disabled]="!canEditSelected()"
         (click)="openEdit()"
       >
         <app-icon name="edit" />
@@ -230,26 +246,37 @@
       <label for="u-login" class="field-label"
         >{{ 'users.form.login' | transloco }} <span class="req">*</span></label
       >
-      <input
-        id="u-login"
-        pInputText
-        formControlName="login"
-        autocomplete="off"
-        placeholder="reception2"
-        [invalid]="invalid('login')"
-        [attr.aria-invalid]="invalid('login')"
-        aria-describedby="u-login-hint"
-      />
-      <span id="u-login-hint" class="hint">{{ 'users.form.loginHint' | transloco }}</span>
+      <!-- v1.7: одно поле «grand_…», начало «<код владельца>_» стереть нельзя -->
+      <div class="flex gap-2">
+        <input
+          id="u-login"
+          pInputText
+          formControlName="login"
+          [appLoginPrefix]="loginPrefix()"
+          class="min-w-0 flex-1 font-mono"
+          [invalid]="invalid('login')"
+          [attr.aria-invalid]="invalid('login')"
+          aria-describedby="u-login-hint"
+        />
+        <app-copy-button [value]="loginPrefix() + form.controls.login.value" />
+      </div>
+      <span
+        id="u-login-hint"
+        class="hint"
+        [class.text-danger]="fieldErrors()['login'] === 'prefix'"
+        >{{
+          (fieldErrors()['login'] === 'prefix' ? 'users.form.loginPrefix' : 'users.form.loginHint')
+            | transloco: { prefix: loginPrefix() }
+        }}</span
+      >
     </div>
     <div class="field">
       <label for="u-phone" class="field-label">{{ 'users.form.phone' | transloco }}</label>
       <input
         id="u-phone"
         pInputText
-        type="tel"
+        appPhone
         formControlName="phone"
-        placeholder="+998 __ ___ __ __"
       />
     </div>
     <div class="field">
@@ -257,7 +284,7 @@
       <p-select
         inputId="u-role"
         formControlName="role"
-        [options]="roleList()"
+        [options]="roleOptions()"
         optionValue="code"
         [fluid]="true"
         appendTo="body"
@@ -265,6 +292,9 @@
         <ng-template #selectedItem let-r>{{ r?.code | roleLabel: r?.name }}</ng-template>
         <ng-template #item let-r>{{ r.code | roleLabel: r.name }}</ng-template>
       </p-select>
+      @if (fieldErrors()['role']) {
+        <span class="hint text-danger">{{ 'users.form.roleInvalid' | transloco }}</span>
+      }
     </div>
     <div class="field">
       <span class="field-label">{{ 'users.form.status' | transloco }}</span>
@@ -276,6 +306,44 @@
         {{ 'users.form.activeLabel' | transloco }}
       </label>
     </div>
+    @if (editingOwner()) {
+      <p class="col-span-full m-0 text-xs text-muted">{{ 'users.form.ownerHint' | transloco }}</p>
+    } @else if (showHotels()) {
+      <!-- v1.6: отели сотрудника (только отели редактора) -->
+      <div class="field col-span-full">
+        <label for="u-hotels" class="field-label"
+          >{{ 'users.form.hotels' | transloco }} <span class="req">*</span></label
+        >
+        <p-multiselect
+          inputId="u-hotels"
+          formControlName="hotelIds"
+          [options]="hotelOptions()"
+          optionLabel="name"
+          optionValue="id"
+          display="chip"
+          [showToggleAll]="false"
+          [filter]="false"
+          [fluid]="true"
+          appendTo="body"
+          [placeholder]="'users.form.hotelsPlaceholder' | transloco"
+          [invalid]="!!fieldErrors()['hotelIds']"
+          aria-describedby="u-hotels-hint"
+        />
+        <span
+          id="u-hotels-hint"
+          class="hint"
+          [class.text-danger]="!!fieldErrors()['hotelIds']"
+          >{{
+            (fieldErrors()['hotelIds']
+              ? fieldErrors()['hotelIds'] === 'required'
+                ? 'users.toast.hotelsRequired'
+                : 'users.form.hotelsInvalid'
+              : 'users.form.hotelsHint'
+            ) | transloco
+          }}</span
+        >
+      </div>
+    }
     @if (editId() === null) {
       <div class="field col-span-full">
         <label for="u-pass" class="field-label"
@@ -342,7 +410,7 @@
   [modal]="true"
   [draggable]="false"
   [resizable]="false"
-  [header]="'users.tempPassword.title' | transloco"
+  [header]="(tempPassword()?.login ? 'users.created.title' : 'users.tempPassword.title') | transloco"
   [style]="{ width: '440px', maxWidth: 'calc(100vw - 32px)' }"
   styleClass="hs-dialog"
   [closeAriaLabel]="'common.close' | transloco"
@@ -350,8 +418,14 @@
   @if (tempPassword(); as t) {
     <div class="flex flex-col gap-4">
       <p class="m-0 text-sm text-ink-2">
-        {{ 'users.tempPassword.text' | transloco: { name: t.name } }}
+        {{ (t.login ? 'users.created.text' : 'users.tempPassword.text') | transloco: { name: t.name } }}
       </p>
+      @if (t.login) {
+        <div class="flex flex-col gap-1 rounded-[10px] border border-line bg-[#F9FAFB] px-4 py-3">
+          <span class="text-xs text-muted">{{ 'users.form.login' | transloco }}</span>
+          <span class="font-mono text-lg font-semibold text-ink select-all">{{ t.login }}</span>
+        </div>
+      }
       <div
         class="flex items-center justify-between gap-3 rounded-[10px] border border-line bg-[#F9FAFB] px-4 py-3"
       >
@@ -369,7 +443,12 @@
         >
           <app-icon [name]="copied() ? 'check' : 'copy'" />
           <span pButtonLabel>{{
-            (copied() ? 'users.tempPassword.copied' : 'users.tempPassword.copy') | transloco
+            (copied()
+              ? 'users.tempPassword.copied'
+              : t.login
+                ? 'users.created.copyAll'
+                : 'users.tempPassword.copy'
+            ) | transloco
           }}</span>
         </button>
       </div>
@@ -484,11 +563,13 @@
         severity="secondary"
         [outlined]="true"
         class="h-12"
+        [disabled]="!canEditSelected()"
         (click)="fromSheet(openEdit.bind(this))"
       >
         <app-icon name="edit" />
         <span pButtonLabel>{{ 'common.edit' | transloco }}</span>
       </button>
+      @if (u.role !== 'owner') {
       <button
         pButton
         type="button"
@@ -524,6 +605,7 @@
         <app-icon name="trash" />
         <span pButtonLabel>{{ 'common.delete' | transloco }}</span>
       </button>
+      }
     </div>
   }
 </app-sheet>

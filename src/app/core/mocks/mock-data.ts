@@ -635,6 +635,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: true,
     lastLogin: '2026-10-26T19:12',
     online: false,
+    hotelIds: [1],
   },
   {
     id: 2,
@@ -645,6 +646,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: true,
     lastLogin: '2026-10-26T20:05',
     online: true,
+    hotelIds: [1],
   },
   {
     id: 3,
@@ -655,6 +657,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: true,
     lastLogin: '2026-10-26T08:01',
     online: false,
+    hotelIds: [1],
   },
   {
     id: 4,
@@ -665,6 +668,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: true,
     lastLogin: '2026-10-25T20:45',
     online: false,
+    hotelIds: [1],
   },
   {
     id: 5,
@@ -675,6 +679,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: true,
     lastLogin: '2026-10-26T09:30',
     online: false,
+    hotelIds: [1],
   },
   {
     id: 6,
@@ -685,6 +690,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: false,
     lastLogin: '2026-10-12T17:05',
     online: false,
+    hotelIds: [1],
   },
   {
     id: 7,
@@ -695,6 +701,7 @@ export const MOCK_USERS: StaffUser[] = [
     active: true,
     lastLogin: '2026-10-24T11:20',
     online: false,
+    hotelIds: [1],
   },
 ];
 

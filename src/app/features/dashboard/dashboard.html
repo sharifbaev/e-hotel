@@ -124,8 +124,17 @@
             >
           </div>
         </div>
-        @if (loading() || !summary()) {
+        @if (loading()) {
           <div class="sk min-h-0 flex-1"></div>
+        } @else if (!hasFinance()) {
+          <!-- Нет данных (или ошибка загрузки) — текст вместо пустого графика -->
+          <app-empty-state
+            class="flex min-h-0 flex-1 items-center justify-center"
+            [title]="loadFailed() ? 'dashboard.empty.errorTitle' : 'common.noData'"
+            [text]="loadFailed() ? 'dashboard.empty.errorText' : 'dashboard.empty.chart'"
+            [icon]="loadFailed() ? 'alert' : 'list-search'"
+            [compact]="true"
+          />
         } @else {
           <app-finance-chart class="min-h-0 flex-1" [data]="summary()!.daily" [mode]="mode()" />
         }
@@ -184,8 +193,16 @@
               </div>
             </div>
           } @empty {
-            @for (s of skeletonRows; track s) {
-              <div class="sk rounded-[10px]"></div>
+            @if (loading()) {
+              @for (s of skeletonRows; track s) {
+                <div class="sk rounded-[10px]"></div>
+              }
+            } @else {
+              <app-empty-state
+                class="col-span-2 row-span-2 flex items-center justify-center"
+                [text]="loadFailed() ? 'dashboard.empty.errorText' : 'dashboard.empty.categories'"
+                [compact]="true"
+              />
             }
           }
         </div>
@@ -252,6 +269,15 @@
                     <td class="px-2.5 text-ink-2 tabular-nums">{{ a.sum | sum }}</td>
                     <td class="px-[18px]"><app-pay-badge [status]="a.pay" [short]="true" /></td>
                   </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="5">
+                      <app-empty-state
+                        [text]="loadFailed() ? 'dashboard.empty.errorText' : 'dashboard.empty.arrivals'"
+                        [compact]="true"
+                      />
+                    </td>
+                  </tr>
                 }
               }
             </tbody>
@@ -291,6 +317,15 @@
                 <span class="text-[13px] font-semibold whitespace-nowrap text-danger"
                   >−{{ e.sum | sum }}</span
                 >
+              </li>
+            } @empty {
+              <li>
+                <app-empty-state
+                  [text]="
+                    expensesFailed() ? 'dashboard.empty.errorText' : 'dashboard.empty.expenses'
+                  "
+                  [compact]="true"
+                />
               </li>
             }
           }
@@ -399,8 +434,15 @@
         <h2 class="m-0 text-[15px] font-semibold">{{ 'dashboard.chartTitle' | transloco }}</h2>
         <span class="text-xs text-muted">{{ 'dashboard.mlnSum' | transloco }}</span>
       </div>
-      @if (loading() || !summary()) {
+      @if (loading()) {
         <div class="sk h-[150px]"></div>
+      } @else if (!hasFinance()) {
+        <app-empty-state
+          [title]="loadFailed() ? 'dashboard.empty.errorTitle' : 'common.noData'"
+          [text]="loadFailed() ? 'dashboard.empty.errorText' : 'dashboard.empty.chart'"
+          [icon]="loadFailed() ? 'alert' : 'list-search'"
+          [compact]="true"
+        />
       } @else {
         <app-finance-chart
           [data]="summary()!.daily"
@@ -466,6 +508,13 @@
               >
             </div>
             <app-pay-badge [status]="a.pay" [short]="true" />
+          </div>
+        } @empty {
+          <div class="rounded-[14px] border border-line-2 bg-white">
+            <app-empty-state
+              [text]="loadFailed() ? 'dashboard.empty.errorText' : 'dashboard.empty.arrivals'"
+              [compact]="true"
+            />
           </div>
         }
       }

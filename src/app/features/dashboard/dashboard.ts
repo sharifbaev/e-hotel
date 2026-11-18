@@ -15,6 +15,7 @@ import { DashboardMode, RoomStatus } from '../../core/models';
 import { addDays, formatSum, isoToLocalDate, localDateToIso } from '../../shared/format/format';
 import { DayMonthPipe, PluralPipe, SumPipe } from '../../shared/format/format.pipes';
 import { PayBadge } from '../../shared/ui/status/badges';
+import { EmptyState } from '../../shared/ui/empty-state/empty-state';
 import { ROOM_TONE } from '../../shared/ui/status/status-styles';
 import { FinanceChart } from './finance-chart';
 
@@ -61,6 +62,7 @@ const FUND_BAR: Record<RoomStatus, string> = {
     SumPipe,
     DayMonthPipe,
     PluralPipe,
+    EmptyState,
   ],
   templateUrl: './dashboard.html',
 })
@@ -110,6 +112,13 @@ export class DashboardPage {
     this.expensesRes.hasValue() ? this.expensesRes.value() : [],
   );
   protected readonly expensesLoading = computed(() => this.expensesRes.isLoading());
+  /** Ошибка загрузки (вместо «нет данных» показываем текст об ошибке). */
+  protected readonly loadFailed = computed(() => !!this.summaryRes.error());
+  protected readonly expensesFailed = computed(() => !!this.expensesRes.error());
+  /** За период есть хоть один доход или расход — иначе вместо графика текст «Нет данных». */
+  protected readonly hasFinance = computed(() =>
+    (this.summary()?.daily ?? []).some((d) => d.revenue || d.expenses),
+  );
 
   /** Открытые долги сейчас (GET /debts): сумма и количество. null — нет доступа / ошибка. */
   private readonly debtsRes = rxResource({

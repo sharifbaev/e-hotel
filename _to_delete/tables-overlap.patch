@@ -1,0 +1,220 @@
+diff --git a/src/app/features/blacklist/blacklist.ts b/src/app/features/blacklist/blacklist.ts
+index 1a36f41..5d5ccf7 100644
+--- a/src/app/features/blacklist/blacklist.ts
++++ b/src/app/features/blacklist/blacklist.ts
+@@ -53,7 +53,7 @@ export class BlacklistPage {
+         valueGetter: (p) => (p.data ? `${fullName(p.data)} ${p.data.middleName}`.trim() : ''),
+         cellRenderer: (p: { value: string }) => avatarCell(p.value, { bg: '#FEE4E2', fg: '#B42318' }),
+       },
+-      { field: 'doc', headerName: t('guests.col.doc'), flex: 1, cellClass: 'tabular-nums text-ink-2' },
++      { field: 'doc', headerName: t('guests.col.doc'), flex: 1, minWidth: 130, cellClass: 'tabular-nums text-ink-2' },
+       {
+         colId: 'country',
+         headerName: t('guests.col.country'),
+@@ -75,7 +75,7 @@ export class BlacklistPage {
+         headerName: t('blacklist.col.added'),
+         flex: 1.1,
+         sort: 'desc',
+-        minWidth: 170,
++        minWidth: 180,
+         valueFormatter: (p) => formatDateTime(p.value),
+         ...dateFilter<BlacklistEntry>(),
+         cellClass: 'text-ink-2',
+diff --git a/src/app/features/book/book.ts b/src/app/features/book/book.ts
+index a688475..f090c3e 100644
+--- a/src/app/features/book/book.ts
++++ b/src/app/features/book/book.ts
+@@ -177,6 +177,7 @@ export class BookPage {
+         colId: 'doc',
+         headerName: t('guests.col.doc'),
+         flex: 1.1,
++        minWidth: 130,
+         valueGetter: (p) => p.data?.reg.doc ?? '',
+         cellClass: 'tabular-nums text-ink-2',
+       },
+@@ -201,7 +202,7 @@ export class BookPage {
+         flex: 1.1,
+         sort: 'desc',
+         valueGetter: (p) => p.data?.reg.checkin ?? '',
+-        minWidth: 160,
++        minWidth: 180,
+         valueFormatter: (p) => dt(p.value),
+         ...dateFilter<BookRow>(),
+         cellClass: 'text-ink-2',
+diff --git a/src/app/features/comments/comments.ts b/src/app/features/comments/comments.ts
+index 46a106f..b01fa66 100644
+--- a/src/app/features/comments/comments.ts
++++ b/src/app/features/comments/comments.ts
+@@ -127,7 +127,7 @@ export class CommentsPage {
+         field: 'at',
+         headerName: t('comments.col.at'),
+         flex: 1.15,
+-        minWidth: 170,
++        minWidth: 180,
+         sort: 'desc',
+         valueFormatter: (p) => formatDateTime(p.value),
+         ...dateFilter<GuestComment>(),
+diff --git a/src/app/features/expenses/expenses.ts b/src/app/features/expenses/expenses.ts
+index 67dd50f..937c6f1 100644
+--- a/src/app/features/expenses/expenses.ts
++++ b/src/app/features/expenses/expenses.ts
+@@ -237,7 +237,7 @@ export class ExpensesPage {
+         headerName: t('col.date'),
+         flex: 1,
+         sort: 'desc',
+-        minWidth: 170,
++        minWidth: 180,
+         valueFormatter: (p) => formatDateTime(p.value),
+         ...dateFilter<Expense>(),
+         cellClass: 'text-ink-2',
+diff --git a/src/app/features/guests/guests.ts b/src/app/features/guests/guests.ts
+index 5293a54..e91b139 100644
+--- a/src/app/features/guests/guests.ts
++++ b/src/app/features/guests/guests.ts
+@@ -246,6 +246,7 @@ export class GuestsPage {
+         field: 'doc',
+         headerName: t('guests.col.doc'),
+         flex: 1.2,
++        minWidth: 130,
+         cellClass: 'tabular-nums text-ink-2',
+       },
+       {
+@@ -266,7 +267,7 @@ export class GuestsPage {
+         field: 'checkin',
+         headerName: t('guests.col.checkin'),
+         flex: 1,
+-        minWidth: 170,
++        minWidth: 180,
+         valueFormatter: (p) => formatDateTime(p.value),
+         ...dateFilter<ArchivedGuest>(),
+         cellClass: 'text-ink-2',
+@@ -276,7 +277,7 @@ export class GuestsPage {
+         headerName: t('guests.col.checkout'),
+         flex: 1,
+         sort: 'desc',
+-        minWidth: 170,
++        minWidth: 180,
+         valueFormatter: (p) => formatDateTime(p.value),
+         ...dateFilter<ArchivedGuest>(),
+         cellClass: 'text-ink-2',
+diff --git a/src/app/features/settings/settings.ts b/src/app/features/settings/settings.ts
+index 988746f..8d63752 100644
+--- a/src/app/features/settings/settings.ts
++++ b/src/app/features/settings/settings.ts
+@@ -308,7 +308,7 @@ export class SettingsPage {
+         field: 'at',
+         headerName: t('settings.log.col.at'),
+         flex: 1.1,
+-        minWidth: 170,
++        minWidth: 180,
+         sort: 'desc',
+         valueFormatter: (p) => formatDateTime(p.value),
+         ...dateFilter<ActionLogEntry>(),
+diff --git a/src/app/features/users/users.ts b/src/app/features/users/users.ts
+index 5ae42f1..8fd467b 100644
+--- a/src/app/features/users/users.ts
++++ b/src/app/features/users/users.ts
+@@ -128,6 +128,7 @@ export class UsersPage {
+         colId: 'role',
+         headerName: t('users.col.role'),
+         flex: 1.2,
++        minWidth: 160,
+         valueGetter: (p) => (p.data ? this.roleName(p.data) : ''),
+         cellRenderer: (p: { data: StaffUser; value: string }) => {
+           const tone = roleTone(p.data.role);
+@@ -138,6 +139,7 @@ export class UsersPage {
+         field: 'phone',
+         headerName: t('users.col.phone'),
+         flex: 1.3,
++        minWidth: 180,
+         cellClass: 'text-ink-2 tabular-nums',
+       },
+       {
+@@ -154,7 +156,7 @@ export class UsersPage {
+         colId: 'lastLogin',
+         headerName: t('users.col.lastLogin'),
+         flex: 1.3,
+-        minWidth: 170,
++        minWidth: 180,
+         // Значение — дата входа (для фильтра по периоду), подпись — в valueFormatter.
+         valueGetter: (p) => p.data?.lastLogin ?? '',
+         valueFormatter: (p) => {
+diff --git a/src/app/shared/grid/data-grid.ts b/src/app/shared/grid/data-grid.ts
+index 113bdb8..fbc22f0 100644
+--- a/src/app/shared/grid/data-grid.ts
++++ b/src/app/shared/grid/data-grid.ts
+@@ -35,6 +35,18 @@ const MAX_VISIBLE_ROWS = 10;
+ /** Минимальная высота таблицы (место под «Нет данных» / загрузку). */
+ const MIN_H = 350;
+ 
++/** Минимальная ширина столбца по умолчанию (поле фильтра остаётся читаемым). */
++const DEFAULT_MIN_W = 120;
++
++/** Ширина, при которой подпись столбца (12px, 600) и иконка сортировки помещаются целиком. */
++function headerMinWidth(header: string | undefined): number {
++  if (!header) {
++    return 0;
++  }
++  // ~7.4px на символ + отступы ячейки (2×16) + иконка сортировки с зазором (~26)
++  return Math.ceil(header.length * 7.4 + 58);
++}
++
+ /** Текст ячейки для окна «Подробнее»: видимый текст рендерера (без aria-hidden). */
+ function visibleText(node: Node): string {
+   const parts: string[] = [];
+@@ -77,7 +89,7 @@ interface DetailRow {
+             class="block h-full"
+             [theme]="theme"
+             [rowData]="rows()"
+-            [columnDefs]="columns()"
++            [columnDefs]="gridColumns()"
+             [defaultColDef]="defaultColDef()"
+             [gridOptions]="gridOptions"
+             [localeText]="localeText()"
+@@ -183,6 +195,19 @@ interface DetailRow {
+       display: flex;
+       align-items: center;
+     }
++    /* Длинный текст не наезжает на соседний столбец: обрезается многоточием
++       (полный текст — в «Подробнее» по двойному клику) */
++    :host ::ng-deep .ag-cell:not(.ag-cell-wrap-text) .ag-cell-wrapper {
++      flex: 1 1 auto;
++      min-width: 0;
++      overflow: hidden;
++    }
++    :host ::ng-deep .ag-cell:not(.ag-cell-wrap-text) .ag-cell-value {
++      min-width: 0;
++      overflow: hidden;
++      white-space: nowrap;
++      text-overflow: ellipsis;
++    }
+     /* Перенос текста (autoHeight): обычный межстрочный интервал вместо высоты строки */
+     :host ::ng-deep .ag-cell-wrap-text {
+       line-height: 1.45;
+@@ -229,9 +254,25 @@ export class DataGrid<T extends object> {
+   readonly details = input(true);
+   protected readonly detail = signal<DetailRow[] | null>(null);
+ 
++  /**
++   * Столбцы с минимальной шириной не меньше подписи + иконка сортировки + поле фильтра:
++   * на узких экранах (MacBook и т.п.) таблица прокручивается по горизонтали,
++   * а не сжимает столбцы так, что надписи наезжают друг на друга.
++   * minWidth: 0 у столбца — оставляется как есть.
++   */
++  protected readonly gridColumns = computed<ColDef<T>[]>(() =>
++    this.columns().map((col) => {
++      if (col.minWidth === 0) {
++        return col;
++      }
++      const need = headerMinWidth(col.headerName);
++      return need > (col.minWidth ?? DEFAULT_MIN_W) ? { ...col, minWidth: need } : col;
++    }),
++  );
++
+   protected readonly defaultColDef = computed<ColDef<T>>(() => ({
+     flex: 1,
+-    minWidth: 90,
++    minWidth: DEFAULT_MIN_W,
+     sortable: true,
+     unSortIcon: true,
+     filter: 'agTextColumnFilter',
