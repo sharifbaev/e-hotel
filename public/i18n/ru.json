@@ -1613,7 +1613,7 @@
     }
   },
   "receipt": {
-    "title": "Фискальный чек № {{number}}",
+    "title": "Фискальный чек",
     "print": "Печать",
     "download": "Скачать Word",
     "printFailTitle": "Не удалось открыть печать",

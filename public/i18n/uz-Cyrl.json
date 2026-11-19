@@ -1613,7 +1613,7 @@
     }
   },
   "receipt": {
-    "title": "Фискал чек № {{number}}",
+    "title": "Фискал чек",
     "print": "Чоп этиш",
     "download": "Word юклаб олиш",
     "printFailTitle": "Чоп этишни очиб бўлмади",

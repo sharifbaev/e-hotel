@@ -92,24 +92,24 @@ const RECEIPT_CSS = `
                   <div class="fr-hotel">{{ head().hotel }}</div>
                 }
               </div>
-              <div class="fr-title">ACCOUNT / СЧЁТ № {{ r.number }}</div>
-              <div class="fr-date">Date / Дата: {{ r.date }}</div>
+              <div class="fr-title">СЧЁТ / HISOB № ____________________</div>
+              <div class="fr-date">Дата / Sana: {{ r.date }}</div>
               <table class="fr-meta">
                 <tbody>
-                  <tr><td>Guest name / Имя гостя</td><td>{{ r.guests }}</td></tr>
-                  <tr><td>Source name / Компания</td><td>{{ r.company }}</td></tr>
-                  <tr><td>Room number / Номер</td><td>{{ r.room }}</td></tr>
-                  <tr><td>Arrival / Заезд</td><td>{{ r.checkin }}</td></tr>
-                  <tr><td>Departures / Выезд</td><td>{{ r.checkout }}</td></tr>
+                  <tr><td>Имя гостя / Mehmon ismi</td><td>{{ r.guests }}</td></tr>
+                  <tr><td>Компания / Kompaniya</td><td>{{ r.company }}</td></tr>
+                  <tr><td>Номер / Xona raqami</td><td>{{ r.room }}</td></tr>
+                  <tr><td>Заезд / Kelish</td><td>{{ r.checkin }}</td></tr>
+                  <tr><td>Выезд / Ketish</td><td>{{ r.checkout }}</td></tr>
                 </tbody>
               </table>
               <table class="fr-items">
                 <thead>
                   <tr>
-                    <th>Charges / Услуги</th>
-                    <th>Number / Количество</th>
-                    <th>Cost / Цена</th>
-                    <th>Amount / Сумма</th>
+                    <th>Услуги / Xizmatlar</th>
+                    <th>Количество / Soni</th>
+                    <th>Цена / Narxi</th>
+                    <th>Сумма / Summa</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -124,14 +124,14 @@ const RECEIPT_CSS = `
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colspan="3">Total amount / Итого:</td>
+                    <td colspan="3">Итого / Jami:</td>
                     <td class="fr-num">{{ r.amount }}</td>
                   </tr>
                 </tfoot>
               </table>
-              <div class="fr-words">In words / прописью: {{ r.amountWords }}</div>
+              <div class="fr-words">Прописью / So‘z bilan: {{ r.amountWords }}</div>
               <div class="fr-sign">
-                <span>Reception clerk / Подпись Деж. администратора</span>
+                <span>Подпись деж. администратора / Navbatchi administrator imzosi</span>
                 <span>______________________ {{ r.cashier }}</span>
               </div>
             </div>
@@ -200,7 +200,7 @@ export class FiscalReceiptDialog {
     }
     doc.open();
     doc.write(
-      `<!doctype html><html><head><meta charset="utf-8"><title>Счёт № ${r.number}</title>` +
+      `<!doctype html><html><head><meta charset="utf-8"><title>Счёт</title>` +
         `<style>${RECEIPT_CSS}</style></head><body>${copy}</body></html>`,
     );
     doc.close();

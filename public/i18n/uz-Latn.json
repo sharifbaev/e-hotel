@@ -1613,7 +1613,7 @@
     }
   },
   "receipt": {
-    "title": "Fiskal chek № {{number}}",
+    "title": "Fiskal chek",
     "print": "Chop etish",
     "download": "Word yuklab olish",
     "printFailTitle": "Chop etishni ochib bo‘lmadi",

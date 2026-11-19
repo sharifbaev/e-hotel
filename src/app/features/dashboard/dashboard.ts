@@ -42,11 +42,12 @@ interface Kpi {
 }
 
 const FUND_ORDER: RoomStatus[] = ['busy', 'free', 'clean', 'repair'];
+/** Цвета полосы — те же, что у точек статусов в карточках и в «Номерах». */
 const FUND_BAR: Record<RoomStatus, string> = {
-  busy: '#0F766E',
-  free: '#2E8B57',
-  clean: '#E8A54B',
-  repair: '#98A2B3',
+  busy: ROOM_TONE.busy.dot,
+  free: ROOM_TONE.free.dot,
+  clean: ROOM_TONE.clean.dot,
+  repair: ROOM_TONE.repair.dot,
 };
 
 @Component({
@@ -285,6 +286,7 @@ export class DashboardPage {
         status,
         count,
         pct: total ? (count / total) * 100 : 0,
+        pctRound: total ? Math.round((count / total) * 100) : 0,
         bar: FUND_BAR[status],
         tint: ROOM_TONE[status].bg,
         fg: ROOM_TONE[status].fg,

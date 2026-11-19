@@ -187,7 +187,7 @@ type Confirm = { kind: 'hotel'; hotel: HotelItem } | { kind: 'reset'; owner: Own
       styleClass="hs-dialog"
       [closeAriaLabel]="'common.close' | transloco"
     >
-      <form id="hotel-form" (ngSubmit)="saveHotel()" novalidate>
+      <form id="hotel-form" [formGroup]="hotelForm" (ngSubmit)="saveHotel()" novalidate>
         <app-hotel-fields
           [group]="hotelForm"
           [tried]="tried()"

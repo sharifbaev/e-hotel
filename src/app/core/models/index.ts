@@ -41,7 +41,7 @@ export const APP_SECTIONS: AppSection[] = [
 /** Доступ системных ролей по умолчанию (пока сервер не прислал свои разделы). */
 export const DEFAULT_ROLE_SECTIONS: Record<SystemRoleCode, AppSection[]> = {
   owner: APP_SECTIONS,
-  admin: ['rooms', 'book', 'guests', 'payments', 'comments'],
+  admin: ['rooms', 'book', 'guests', 'blacklist', 'payments', 'comments'],
   accountant: ['dashboard', 'payments'],
 };
 
