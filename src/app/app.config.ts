@@ -6,7 +6,13 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
-import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
+import {
+  PreloadAllModules,
+  provideRouter,
+  withComponentInputBinding,
+  withInMemoryScrolling,
+  withPreloading,
+} from '@angular/router';
 import { provideTransloco } from '@jsverse/transloco';
 import { providePrimeNG } from 'primeng/config';
 import { routes } from './app.routes';
@@ -28,6 +34,8 @@ export const appConfig: ApplicationConfig = {
       routes,
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
+      // Код всех разделов подгружается в фоне после старта — клик по меню не ждёт загрузки
+      withPreloading(PreloadAllModules),
     ),
     // Порядок: ответ сначала видит authInterceptor (обновление токена на 401),
     // затем hotelInterceptor (X-Hotel-Id, hotel.required / hotel.forbidden), затем ошибка → ApiError.
